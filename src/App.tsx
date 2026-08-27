@@ -12,6 +12,7 @@ import AppleEventModal from './components/AppleEventModal';
 import AppleAlarmModal from './components/AppleAlarmModal';
 import VoiceSettings from './components/VoiceSettings';
 import DeploymentGuide from './components/DeploymentGuide';
+import AppLogo from './components/AppLogo';
 import { 
   Bell, X, Smartphone, Check, Clock, Calendar as CalendarIcon, 
   Volume2, Sparkles, Wifi, Battery, ChevronRight
@@ -420,12 +421,10 @@ export default function App() {
             className="fixed top-2 left-1/2 -translate-x-1/2 z-[120] w-11/12 max-w-sm"
           >
             <div className="bg-neutral-900/90 backdrop-blur-xl border border-white/20 text-white p-3.5 rounded-2xl shadow-2xl flex gap-3 items-start">
-              <div className="bg-[#FF3B30] p-2 rounded-xl text-white shrink-0">
-                <CalendarIcon className="w-4 h-4" />
-              </div>
+              <AppLogo size={32} />
               <div className="flex-1 min-w-0 space-y-0.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Calendar</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Scheduly Alert</span>
                   <span className="text-[10px] text-neutral-400">now</span>
                 </div>
                 <h5 className="text-xs font-bold text-white truncate">{simulatedNotification.title}</h5>
@@ -614,13 +613,16 @@ export default function App() {
 
             {/* Mobile Header Bar */}
             <div className="px-4 py-2 bg-[#F6F6F8] border-b border-black/[0.06] flex items-center justify-between">
-              <div>
-                <span className="text-[10px] font-bold text-[#FF3B30] uppercase tracking-wider block">
-                  {currentDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
-                </span>
-                <h3 className="text-base font-bold text-neutral-900">
-                  {currentDate.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' })}
-                </h3>
+              <div className="flex items-center gap-2">
+                <AppLogo size={28} />
+                <div>
+                  <span className="text-[10px] font-bold text-[#FF3B30] uppercase tracking-wider block">
+                    {currentDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
+                  </span>
+                  <h3 className="text-sm font-bold text-neutral-900 leading-tight">
+                    {currentDate.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' })}
+                  </h3>
+                </div>
               </div>
 
               <div className="flex items-center gap-2">

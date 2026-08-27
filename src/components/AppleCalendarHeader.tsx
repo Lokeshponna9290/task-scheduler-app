@@ -6,6 +6,7 @@ import {
   Monitor, Calendar, Sparkles, Check
 } from 'lucide-react';
 import { MONTH_NAMES, MONTH_SHORT_NAMES, getWeekDays } from '../utils/dateUtils';
+import AppLogo from './AppLogo';
 
 interface AppleCalendarHeaderProps {
   currentDate: Date;
@@ -90,6 +91,11 @@ export default function AppleCalendarHeader({
           <div className="w-3 h-3 rounded-full bg-[#FF5F56] border border-[#E0443E] shadow-inner hover:opacity-80 transition cursor-pointer" />
           <div className="w-3 h-3 rounded-full bg-[#FFBD2E] border border-[#DEA123] shadow-inner hover:opacity-80 transition cursor-pointer" />
           <div className="w-3 h-3 rounded-full bg-[#27C93F] border border-[#1AAB29] shadow-inner hover:opacity-80 transition cursor-pointer" />
+        </div>
+
+        {/* Custom Logo Brand */}
+        <div className="flex items-center gap-2 mr-1">
+          <AppLogo size={24} />
         </div>
 
         {/* Sidebar toggle button */}
