@@ -76,19 +76,11 @@ export default function AppleCalendarHeader({
   return (
     <header className="h-14 bg-white/90 backdrop-blur-md border-b border-black/[0.08] px-4 flex items-center justify-between select-none shrink-0 z-30 transition-all">
       
-      {/* Left controls: Traffic lights, Logo, Sidebar Toggle & Navigation */}
+      {/* Left controls: Logo, Sidebar Toggle & Navigation */}
       <div className="flex items-center gap-3 md:gap-4">
-        
-        {/* macOS Window Controls */}
-        <div className="hidden sm:flex items-center gap-2 mr-1">
-          <div className="w-3 h-3 rounded-full bg-[#FF5F56] border border-[#E0443E] shadow-inner hover:opacity-80 transition cursor-pointer" />
-          <div className="w-3 h-3 rounded-full bg-[#FFBD2E] border border-[#DEA123] shadow-inner hover:opacity-80 transition cursor-pointer" />
-          <div className="w-3 h-3 rounded-full bg-[#27C93F] border border-[#1AAB29] shadow-inner hover:opacity-80 transition cursor-pointer" />
-        </div>
-
         {/* Custom Logo Brand */}
         <div className="flex items-center gap-2 mr-1">
-          <AppLogo size={24} />
+          <AppLogo size={26} />
         </div>
 
         {/* Sidebar toggle button */}
