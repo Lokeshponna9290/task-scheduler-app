@@ -10,11 +10,12 @@ import AppleMonthView from './components/views/AppleMonthView';
 import AppleYearView from './components/views/AppleYearView';
 import AppleEventModal from './components/AppleEventModal';
 import AppleAlarmModal from './components/AppleAlarmModal';
+import AppleAccountModal, { UserProfile } from './components/AppleAccountModal';
 import VoiceSettings from './components/VoiceSettings';
 import AppLogo from './components/AppLogo';
 import { 
   X, Check, Clock, Calendar as CalendarIcon, 
-  Volume2, Settings2
+  Volume2, Settings2, User
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -145,6 +146,15 @@ const getInitialEvents = (): ScheduleEvent[] => {
   ];
 };
 
+const DEFAULT_USER_PROFILE: UserProfile = {
+  name: 'Lokesh Reddy',
+  email: 'lokeshreddyponna@gmail.com',
+  avatarColor: 'linear-gradient(135deg, #0077FE 0%, #0051D4 100%)',
+  membership: 'Pro Member',
+  syncStatus: 'synced',
+  lastSyncedAt: 'Just now',
+};
+
 export default function App() {
   // Calendar Events state
   const [events, setEvents] = useState<ScheduleEvent[]>(() => {
@@ -160,6 +170,24 @@ export default function App() {
     }
     return getInitialEvents();
   });
+
+  // User Profile Account state
+  const [userProfile, setUserProfile] = useState<UserProfile>(() => {
+    if (typeof window !== 'undefined') {
+      const saved = localStorage.getItem('scheduler_user_profile');
+      if (saved) {
+        try {
+          return JSON.parse(saved);
+        } catch (e) {
+          console.error("Failed to parse user profile", e);
+        }
+      }
+    }
+    return DEFAULT_USER_PROFILE;
+  });
+
+  // Account modal state
+  const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
 
   // Calendar Navigation & Views
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
@@ -193,6 +221,14 @@ export default function App() {
   useEffect(() => {
     localStorage.setItem('apple_calendar_events_v2', JSON.stringify(events));
   }, [events]);
+
+  useEffect(() => {
+    localStorage.setItem('scheduler_user_profile', JSON.stringify(userProfile));
+  }, [userProfile]);
+
+  const handleUpdateProfile = (updated: Partial<UserProfile>) => {
+    setUserProfile(prev => ({ ...prev, ...updated }));
+  };
 
   // Live Timer and Alarm Trigger
   useEffect(() => {
@@ -475,6 +511,8 @@ export default function App() {
           onSearchChange={setSearchQuery}
           onOpenNewEventModal={() => handleOpenNewEvent()}
           onOpenPreferences={() => setIsPreferencesOpen(true)}
+          userProfile={userProfile}
+          onOpenAccount={() => setIsAccountModalOpen(true)}
         />
 
         {/* Main Content Workspace */}
@@ -494,6 +532,8 @@ export default function App() {
               onChangeAccent={setCurrentAccent}
               activeChime={currentChime}
               onChangeChime={setCurrentChime}
+              userProfile={userProfile}
+              onOpenAccount={() => setIsAccountModalOpen(true)}
             />
           )}
 
@@ -565,6 +605,16 @@ export default function App() {
         defaultTime={modalPresetTime}
         onSaveEvent={handleSaveEvent}
         onDeleteEvent={handleDeleteEvent}
+      />
+
+      {/* Apple User Account Details Modal */}
+      <AppleAccountModal
+        isOpen={isAccountModalOpen}
+        onClose={() => setIsAccountModalOpen(false)}
+        userProfile={userProfile}
+        onUpdateProfile={handleUpdateProfile}
+        eventsCount={events.length}
+        events={events}
       />
 
       {/* Apple Preferences / Audio Studio Modal */}

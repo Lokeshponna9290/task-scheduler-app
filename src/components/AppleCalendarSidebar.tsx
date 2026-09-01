@@ -1,15 +1,12 @@
 import React, { useState } from 'react';
-import { ScheduleEvent, CATEGORY_CONFIGS, VoiceAccentId, ChimeType } from '../types';
-import { 
-  ChevronLeft, ChevronRight, Check, Volume2, 
-  Bell, Clock, Sparkles, Plus, Play, CheckCircle2
-} from 'lucide-react';
-import { 
-  getMonthGrid, MONTH_NAMES, WEEKDAY_INITIALS, 
-  toDateKey, isSameDay, isToday, formatTime12h 
-} from '../utils/dateUtils';
+import { ScheduleEvent, VoiceAccentId, ChimeType, CATEGORY_CONFIGS } from '../types';
+import { MONTH_NAMES, getMonthGrid, toDateKey } from '../utils/dateUtils';
 import { VOICE_ACCENTS, speakText, playChime } from '../utils/audio';
-import AppLogo from './AppLogo';
+import { 
+  ChevronLeft, ChevronRight, Plus, 
+  Volume2, Play, User, Check
+} from 'lucide-react';
+import { UserProfile } from './AppleAccountModal';
 
 interface AppleCalendarSidebarProps {
   currentDate: Date;
@@ -23,6 +20,8 @@ interface AppleCalendarSidebarProps {
   onChangeAccent: (accent: VoiceAccentId) => void;
   activeChime: ChimeType;
   onChangeChime: (chime: ChimeType) => void;
+  userProfile?: UserProfile;
+  onOpenAccount?: () => void;
 }
 
 export default function AppleCalendarSidebar({
@@ -37,78 +36,63 @@ export default function AppleCalendarSidebar({
   onChangeAccent,
   activeChime,
   onChangeChime,
+  userProfile = {
+    name: 'Lokesh Reddy',
+    email: 'lokeshreddyponna@gmail.com',
+    avatarColor: 'linear-gradient(135deg, #0077FE 0%, #0051D4 100%)',
+    membership: 'Pro Member',
+    syncStatus: 'synced',
+  },
+  onOpenAccount,
 }: AppleCalendarSidebarProps) {
+  // Mini calendar month/year state (allows browsing months in the sidebar independently)
   const [miniCalendarMonth, setMiniCalendarMonth] = useState(currentDate.getMonth());
   const [miniCalendarYear, setMiniCalendarYear] = useState(currentDate.getFullYear());
   const [isPlayingTestAudio, setIsPlayingTestAudio] = useState(false);
 
-  // Sync mini calendar when currentDate month/year changes
-  React.useEffect(() => {
-    setMiniCalendarMonth(currentDate.getMonth());
-    setMiniCalendarYear(currentDate.getFullYear());
-  }, [currentDate]);
+  // Month grid matrix for mini calendar
+  const miniGrid = getMonthGrid(miniCalendarYear, miniCalendarMonth, currentDate);
 
   const handlePrevMiniMonth = () => {
     if (miniCalendarMonth === 0) {
       setMiniCalendarMonth(11);
-      setMiniCalendarYear(miniCalendarYear - 1);
+      setMiniCalendarYear(prev => prev - 1);
     } else {
-      setMiniCalendarMonth(miniCalendarMonth - 1);
+      setMiniCalendarMonth(prev => prev - 1);
     }
   };
 
   const handleNextMiniMonth = () => {
     if (miniCalendarMonth === 11) {
       setMiniCalendarMonth(0);
-      setMiniCalendarYear(miniCalendarYear + 1);
+      setMiniCalendarYear(prev => prev + 1);
     } else {
-      setMiniCalendarMonth(miniCalendarMonth + 1);
+      setMiniCalendarMonth(prev => prev + 1);
     }
   };
 
-  // Generate mini calendar grid
-  const miniGrid = getMonthGrid(miniCalendarYear, miniCalendarMonth, currentDate);
+  // Find nearest upcoming event
+  const todayKey = toDateKey(new Date());
+  const todayEvents = events
+    .filter(e => (e.date || todayKey) === todayKey && !e.completed)
+    .sort((a, b) => a.time.localeCompare(b.time));
+  
+  const nextEvent = todayEvents[0];
 
-  // Map events to date keys to show dots on mini calendar
-  const eventsByDateKey = React.useMemo(() => {
-    const map = new Map<string, ScheduleEvent[]>();
-    const todayKey = toDateKey(new Date());
-    events.forEach(e => {
-      const key = e.date || todayKey;
-      if (!map.has(key)) map.set(key, []);
-      map.get(key)!.push(e);
-    });
-    return map;
-  }, [events]);
-
-  // Find next upcoming event
-  const nextEvent = React.useMemo(() => {
-    const todayKey = toDateKey(new Date());
-    const now = new Date();
-    const currentMins = now.getHours() * 60 + now.getMinutes();
-
-    const todayEvents = events.filter(e => (e.date || todayKey) === todayKey && !e.completed);
-    const sorted = [...todayEvents].sort((a, b) => a.time.localeCompare(b.time));
-    
-    const upcoming = sorted.find(e => {
-      const [h, m] = e.time.split(':').map(Number);
-      return h * 60 + m >= currentMins;
-    });
-
-    return upcoming || sorted[0] || events[0];
-  }, [events]);
-
-  const handleTestVoice = (e: React.MouseEvent) => {
-    e.stopPropagation();
+  const handleTestVoice = () => {
     if (isPlayingTestAudio) return;
     setIsPlayingTestAudio(true);
     playChime(activeChime);
     setTimeout(() => {
-      speakText(`Reminder preview. This is an announcement with ${VOICE_ACCENTS[activeAccent].name}.`, activeAccent, () => {
+      speakText(`Reminder preview with ${VOICE_ACCENTS[activeAccent].name}.`, activeAccent, () => {
         setIsPlayingTestAudio(false);
       });
     }, 800);
   };
+
+  const initials = userProfile.name
+    ? userProfile.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
+    : 'LP';
 
   return (
     <aside className="w-64 bg-[#F6F6F8] border-r border-black/[0.08] flex flex-col h-full shrink-0 select-none overflow-y-auto custom-sidebar transition-all">
@@ -138,39 +122,42 @@ export default function AppleCalendarSidebar({
           </div>
         </div>
 
-        {/* Day Initials Row */}
+        {/* Day-of-week headers */}
         <div className="grid grid-cols-7 text-center mb-1">
-          {WEEKDAY_INITIALS.map((init, idx) => (
+          {['S', 'M', 'T', 'W', 'T', 'F', 'S'].map((day, idx) => (
             <span key={idx} className="text-[10px] font-semibold text-neutral-400">
-              {init}
+              {day}
             </span>
           ))}
         </div>
 
-        {/* Mini Grid */}
-        <div className="grid grid-cols-7 gap-y-1 text-center">
-          {miniGrid.map((day, idx) => {
-            const hasEvents = eventsByDateKey.has(day.dateKey);
-            const isSel = isSameDay(day.date, currentDate);
-            const isCurrentToday = isToday(day.date);
+        {/* Calendar Day Grid */}
+        <div className="grid grid-cols-7 gap-y-1 text-center text-xs">
+          {miniGrid.map((dayObj, idx) => {
+            const hasEvents = dayObj.isCurrentMonth && events.some(e => (e.date || todayKey) === dayObj.dateKey);
 
             return (
               <button
                 key={idx}
-                onClick={() => onSelectDate(day.date)}
-                className={`relative h-6 w-6 mx-auto flex items-center justify-center rounded-full text-[11px] font-medium transition ${
-                  isCurrentToday
+                onClick={() => {
+                  if (dayObj.isCurrentMonth) {
+                    onSelectDate(dayObj.date);
+                  }
+                }}
+                disabled={!dayObj.isCurrentMonth}
+                className={`w-7 h-7 mx-auto flex flex-col items-center justify-center rounded-full text-xs transition relative ${
+                  !dayObj.isCurrentMonth
+                    ? 'text-neutral-300 cursor-default'
+                    : dayObj.isSelected
+                    ? 'bg-[#007AFF] text-white font-bold shadow-xs'
+                    : dayObj.isToday
                     ? 'bg-[#FF3B30] text-white font-bold shadow-xs'
-                    : isSel
-                    ? 'bg-[#007AFF] text-white font-semibold shadow-xs'
-                    : day.isCurrentMonth
-                    ? 'text-neutral-800 hover:bg-neutral-200/80'
-                    : 'text-neutral-300 hover:text-neutral-500'
+                    : 'text-neutral-700 hover:bg-neutral-200/80 font-medium'
                 }`}
               >
-                <span>{day.dayNumber}</span>
-                {hasEvents && !isCurrentToday && !isSel && (
-                  <span className="absolute bottom-0.5 left-1/2 -translate-x-1/2 w-1 h-1 rounded-full bg-[#007AFF]" />
+                <span>{dayObj.dayNumber}</span>
+                {hasEvents && !dayObj.isSelected && !dayObj.isToday && (
+                  <span className="w-1 h-1 rounded-full bg-[#007AFF] absolute bottom-1" />
                 )}
               </button>
             );
@@ -178,9 +165,9 @@ export default function AppleCalendarSidebar({
         </div>
       </div>
 
-      {/* 2. Apple "Calendars" Section */}
-      <div className="p-4 border-b border-black/[0.06]">
-        <div className="flex items-center justify-between mb-2">
+      {/* 2. Apple Calendar Categories / Groups */}
+      <div className="p-4 border-b border-black/[0.06] flex-1">
+        <div className="flex items-center justify-between mb-3 px-1">
           <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">
             Calendars
           </span>
@@ -193,123 +180,114 @@ export default function AppleCalendarSidebar({
           </button>
         </div>
 
-        {/* List of categories styled as Apple Calendars */}
         <div className="space-y-1">
           {(Object.keys(CATEGORY_CONFIGS) as ScheduleEvent['category'][]).map((catKey) => {
-            const cat = CATEGORY_CONFIGS[catKey];
-            const isSelected = selectedCategories.has(catKey);
+            const config = CATEGORY_CONFIGS[catKey];
+            const isChecked = selectedCategories.has(catKey);
             const count = events.filter(e => e.category === catKey).length;
 
             return (
-              <label
+              <div
                 key={catKey}
-                className="flex items-center justify-between px-2 py-1.5 rounded-md hover:bg-neutral-200/60 cursor-pointer transition text-xs group"
+                onClick={() => onToggleCategory(catKey)}
+                className="flex items-center justify-between px-2 py-1.5 rounded-lg hover:bg-black/[0.04] cursor-pointer transition text-xs group"
               >
                 <div className="flex items-center gap-2.5">
-                  {/* Apple Style Checkbox Circle */}
-                  <input
-                    type="checkbox"
-                    checked={isSelected}
-                    onChange={() => onToggleCategory(catKey)}
-                    className="sr-only"
-                  />
                   <div
-                    onClick={(e) => {
-                      e.preventDefault();
-                      onToggleCategory(catKey);
+                    className={`w-4 h-4 rounded-[5px] flex items-center justify-center transition border ${
+                      isChecked
+                        ? 'border-transparent text-white'
+                        : 'border-neutral-300 bg-white'
+                    }`}
+                    style={{
+                      backgroundColor: isChecked ? config.color : 'white',
                     }}
-                    style={{ backgroundColor: isSelected ? cat.color : 'transparent', borderColor: cat.color }}
-                    className={`w-4 h-4 rounded-md border-2 flex items-center justify-center transition`}
                   >
-                    {isSelected && <Check className="w-2.5 h-2.5 text-white stroke-[3]" />}
+                    {isChecked && <Check className="w-3 h-3 stroke-[3]" />}
                   </div>
-                  <span className={`font-medium ${isSelected ? 'text-neutral-900' : 'text-neutral-400'}`}>
-                    {cat.label}
+                  <span className="font-medium text-neutral-800">
+                    {config.label}
                   </span>
                 </div>
-                <span className="text-[10px] text-neutral-400 font-mono px-1.5 py-0.5 rounded bg-neutral-200/40">
+                <span className="text-[11px] text-neutral-400 font-normal">
                   {count}
                 </span>
-              </label>
+              </div>
             );
           })}
         </div>
       </div>
 
-      {/* 3. Upcoming Reminder Live Widget */}
+      {/* 3. Next Upcoming Reminder Alert Widget */}
       {nextEvent && (
-        <div className="p-4 border-b border-black/[0.06]">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-neutral-400 mb-2 flex items-center gap-1.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-[#FF3B30] apple-live-dot" />
-            <span>Next Reminder</span>
+        <div className="p-4 border-t border-black/[0.06]">
+          <div className="flex items-center gap-1.5 mb-2 px-1">
+            <span className="w-2 h-2 rounded-full bg-[#FF3B30] animate-pulse" />
+            <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">
+              Next Reminder
+            </span>
           </div>
 
-          <div 
+          <div
             onClick={() => onSelectEvent(nextEvent)}
-            className="bg-white rounded-xl p-3 border border-black/[0.06] shadow-2xs hover:shadow-xs hover:border-neutral-300 transition cursor-pointer group"
+            className="p-3 bg-white rounded-xl border border-black/[0.06] hover:shadow-apple-card transition cursor-pointer group"
           >
-            <div className="flex items-start justify-between gap-2">
-              <div>
-                <span className="text-[10px] font-bold text-[#FF3B30] font-mono block">
-                  {formatTime12h(nextEvent.time)} ({nextEvent.duration}m)
-                </span>
-                <h4 className="text-xs font-bold text-neutral-900 line-clamp-1 mt-0.5 group-hover:text-[#007AFF] transition">
-                  {nextEvent.title}
-                </h4>
-              </div>
-              <span className={`text-[9px] px-1.5 py-0.5 rounded font-semibold shrink-0 ${CATEGORY_CONFIGS[nextEvent.category].badgeBg}`}>
+            <div className="flex items-center justify-between mb-1">
+              <span className="text-xs font-bold text-[#FF3B30]">
+                {nextEvent.time}
+              </span>
+              <span 
+                className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded-full"
+                style={{
+                  backgroundColor: CATEGORY_CONFIGS[nextEvent.category].bgLight,
+                  color: CATEGORY_CONFIGS[nextEvent.category].color,
+                }}
+              >
                 {nextEvent.category}
               </span>
             </div>
 
+            <h5 className="text-xs font-bold text-neutral-900 truncate group-hover:text-[#007AFF] transition">
+              {nextEvent.title}
+            </h5>
+
             {nextEvent.notes && (
-              <p className="text-[11px] text-neutral-500 line-clamp-2 mt-1.5 leading-snug">
+              <p className="text-[11px] text-neutral-500 truncate mt-0.5">
                 {nextEvent.notes}
               </p>
             )}
-
-            {/* Audio Waveform status */}
-            <div className="flex items-center justify-between mt-3 pt-2 border-t border-neutral-100 text-[10px] text-neutral-500">
-              <span className="flex items-center gap-1">
-                <Volume2 className="w-3 h-3 text-neutral-400" />
-                <span>{VOICE_ACCENTS[nextEvent.accent].name.split(' ')[0]}</span>
-              </span>
-              <button
-                onClick={handleTestVoice}
-                className="text-[#007AFF] hover:underline font-semibold flex items-center gap-1"
-                title="Preview Voice Alert"
-              >
-                <Play className="w-2.5 h-2.5 fill-current" />
-                <span>Preview</span>
-              </button>
-            </div>
           </div>
         </div>
       )}
 
-      {/* 4. Quick Audio & Voice Accent Selector Footer */}
-      <div className="p-4 mt-auto">
-        <div className="bg-white/80 rounded-xl p-3 border border-black/[0.06] space-y-2 text-xs">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-neutral-400 uppercase tracking-wider">Voice Synthesis</span>
-            <span className="text-[10px] font-semibold text-emerald-600 bg-emerald-50 px-1.5 py-0.5 rounded">Active</span>
-          </div>
-
-          <div className="flex items-center justify-between pt-1">
-            <div className="flex items-center gap-1.5">
-              <span className="text-base">{VOICE_ACCENTS[activeAccent].flag}</span>
-              <span className="font-semibold text-neutral-800 text-[11px]">{VOICE_ACCENTS[activeAccent].name}</span>
-            </div>
-            <button
-              onClick={handleTestVoice}
-              disabled={isPlayingTestAudio}
-              className="p-1 rounded bg-neutral-100 hover:bg-neutral-200 text-neutral-700 transition"
-              title="Test Voice Announcement"
+      {/* 4. User Account Profile Footer Pill */}
+      <div className="p-3 border-t border-black/[0.06] bg-white/70">
+        <button
+          onClick={onOpenAccount}
+          className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-black/[0.04] active:scale-98 transition text-left group"
+          title="View Account Details"
+        >
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div 
+              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-xs shrink-0"
+              style={{ background: userProfile.avatarColor || 'linear-gradient(135deg, #0077FE 0%, #0051D4 100%)' }}
             >
-              <Volume2 className={`w-3.5 h-3.5 ${isPlayingTestAudio ? 'text-[#007AFF] animate-pulse' : ''}`} />
-            </button>
+              {initials}
+            </div>
+            <div className="flex-1 min-w-0">
+              <h5 className="text-xs font-bold text-neutral-800 truncate group-hover:text-[#007AFF] transition">
+                {userProfile.name}
+              </h5>
+              <div className="flex items-center gap-1 text-[10px] text-emerald-600 font-medium">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
+                <span>Online</span>
+              </div>
+            </div>
           </div>
-        </div>
+          <span className="text-[10px] font-bold text-neutral-400 group-hover:text-neutral-700 transition px-1.5 py-0.5 rounded bg-neutral-100 border border-neutral-200">
+            Account
+          </span>
+        </button>
       </div>
 
     </aside>

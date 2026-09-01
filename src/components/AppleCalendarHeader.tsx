@@ -2,10 +2,11 @@ import React from 'react';
 import { CalendarViewType } from '../types';
 import { 
   ChevronLeft, ChevronRight, Plus, Search, 
-  PanelLeftClose, PanelLeft, Settings2
+  PanelLeftClose, PanelLeft, Settings2, User
 } from 'lucide-react';
 import { MONTH_NAMES, MONTH_SHORT_NAMES, getWeekDays } from '../utils/dateUtils';
 import AppLogo from './AppLogo';
+import { UserProfile } from './AppleAccountModal';
 
 interface AppleCalendarHeaderProps {
   currentDate: Date;
@@ -21,6 +22,8 @@ interface AppleCalendarHeaderProps {
   onSearchChange: (query: string) => void;
   onOpenNewEventModal: () => void;
   onOpenPreferences?: () => void;
+  userProfile?: UserProfile;
+  onOpenAccount?: () => void;
 }
 
 export default function AppleCalendarHeader({
@@ -37,6 +40,8 @@ export default function AppleCalendarHeader({
   onSearchChange,
   onOpenNewEventModal,
   onOpenPreferences,
+  userProfile,
+  onOpenAccount,
 }: AppleCalendarHeaderProps) {
 
   // Generate header title based on current view and date
@@ -74,6 +79,10 @@ export default function AppleCalendarHeader({
     { id: 'month', label: 'Month' },
     { id: 'year', label: 'Year' },
   ];
+
+  const initials = userProfile?.name
+    ? userProfile.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
+    : 'LP';
 
   return (
     <header className="h-14 bg-white/90 backdrop-blur-md border-b border-black/[0.08] px-4 flex items-center justify-between select-none shrink-0 z-30 transition-all">
@@ -158,8 +167,8 @@ export default function AppleCalendarHeader({
         })}
       </div>
 
-      {/* Right controls: Search & Quick Add */}
-      <div className="flex items-center gap-2 md:gap-3">
+      {/* Right controls: Search, Quick Add, Settings & User Account */}
+      <div className="flex items-center gap-2 md:gap-2.5">
         
         {/* Search Bar */}
         <div className="relative hidden md:block">
@@ -169,7 +178,7 @@ export default function AppleCalendarHeader({
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
             placeholder="Search events..."
-            className="w-36 lg:w-48 pl-8 pr-3 py-1 text-xs bg-neutral-100/80 hover:bg-neutral-100 focus:bg-white border border-transparent focus:border-neutral-300 rounded-md focus:outline-none transition"
+            className="w-32 lg:w-44 pl-8 pr-3 py-1 text-xs bg-neutral-100/80 hover:bg-neutral-100 focus:bg-white border border-transparent focus:border-neutral-300 rounded-md focus:outline-none transition"
           />
           {searchQuery && (
             <button
@@ -191,6 +200,7 @@ export default function AppleCalendarHeader({
           <span>New Event</span>
         </button>
 
+        {/* Preferences Gear */}
         {onOpenPreferences && (
           <button
             onClick={onOpenPreferences}
@@ -198,6 +208,18 @@ export default function AppleCalendarHeader({
             title="Audio & Voice Preferences"
           >
             <Settings2 className="w-4 h-4" />
+          </button>
+        )}
+
+        {/* User Account Avatar Button */}
+        {onOpenAccount && (
+          <button
+            onClick={onOpenAccount}
+            className="w-7 h-7 rounded-full flex items-center justify-center text-white text-[10px] font-bold shadow-xs hover:ring-2 hover:ring-[#0077FE] active:scale-95 transition"
+            style={{ background: userProfile?.avatarColor || 'linear-gradient(135deg, #0077FE 0%, #0051D4 100%)' }}
+            title={`Account: ${userProfile?.name || 'User'}`}
+          >
+            {initials}
           </button>
         )}
       </div>
