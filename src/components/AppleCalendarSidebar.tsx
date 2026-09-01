@@ -113,14 +113,6 @@ export default function AppleCalendarSidebar({
   return (
     <aside className="w-64 bg-[#F6F6F8] border-r border-black/[0.08] flex flex-col h-full shrink-0 select-none overflow-y-auto custom-sidebar transition-all">
       
-      {/* App Branding Top Header */}
-      <div className="px-4 py-3 border-b border-black/[0.06] flex items-center justify-between bg-white/60">
-        <AppLogo size={26} showText={true} />
-        <span className="text-[9px] font-bold uppercase tracking-wider text-emerald-600 bg-emerald-50 px-2 py-0.5 rounded-full border border-emerald-200">
-          Pro
-        </span>
-      </div>
-
       {/* 1. Mini Month Calendar Picker */}
       <div className="p-4 border-b border-black/[0.06]">
         {/* Month Header */}

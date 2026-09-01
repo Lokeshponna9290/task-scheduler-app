@@ -14,6 +14,7 @@ interface AppleCalendarHeaderProps {
   onNavigatePrev: () => void;
   onNavigateNext: () => void;
   onNavigateToday: () => void;
+  onNavigateHome: () => void;
   isSidebarOpen: boolean;
   onToggleSidebar: () => void;
   searchQuery: string;
@@ -29,6 +30,7 @@ export default function AppleCalendarHeader({
   onNavigatePrev,
   onNavigateNext,
   onNavigateToday,
+  onNavigateHome,
   isSidebarOpen,
   onToggleSidebar,
   searchQuery,
@@ -76,12 +78,20 @@ export default function AppleCalendarHeader({
   return (
     <header className="h-14 bg-white/90 backdrop-blur-md border-b border-black/[0.08] px-4 flex items-center justify-between select-none shrink-0 z-30 transition-all">
       
-      {/* Left controls: Logo, Sidebar Toggle & Navigation */}
+      {/* Left controls: Clickable Home Logo, Sidebar Toggle & Navigation */}
       <div className="flex items-center gap-3 md:gap-4">
-        {/* Custom Logo Brand */}
-        <div className="flex items-center gap-2 mr-1">
-          <AppLogo size={26} />
-        </div>
+        
+        {/* Single Main Brand Logo (Works as Home Button) */}
+        <button
+          onClick={onNavigateHome}
+          className="flex items-center gap-2 p-1 -ml-1 rounded-xl hover:bg-neutral-100 active:scale-95 transition cursor-pointer group"
+          title="Scheduler Home (Today)"
+        >
+          <AppLogo size={28} />
+          <span className="text-sm font-bold tracking-tight text-neutral-900 font-sans group-hover:text-[#007AFF] transition hidden sm:inline">
+            Scheduler
+          </span>
+        </button>
 
         {/* Sidebar toggle button */}
         <button

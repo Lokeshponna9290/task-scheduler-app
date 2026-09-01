@@ -110,11 +110,11 @@ export default function AppLogo({ size = 32, className = '', showText = false }:
         />
       </svg>
 
-      {/* Optional Brand Text */}
+      {/* Brand Text */}
       {showText && (
         <div className="flex flex-col select-none">
           <span className="text-sm font-bold tracking-tight text-neutral-900 leading-none">
-            Scheduly
+            Scheduler
           </span>
           <span className="text-[10px] font-medium text-neutral-400 mt-0.5">
             Smart Calendar

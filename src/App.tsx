@@ -336,6 +336,12 @@ export default function App() {
     setCurrentDate(new Date());
   };
 
+  const handleNavigateHome = () => {
+    setCurrentDate(new Date());
+    setViewType('day');
+    setSearchQuery('');
+  };
+
   const handleNavigatePrev = () => {
     const d = new Date(currentDate);
     if (viewType === 'day') {
@@ -422,7 +428,7 @@ export default function App() {
               <AppLogo size={32} />
               <div className="flex-1 min-w-0 space-y-0.5">
                 <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Scheduly Alert</span>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">Scheduler Alert</span>
                   <span className="text-[10px] text-neutral-400">now</span>
                 </div>
                 <h5 className="text-xs font-bold text-white truncate">{simulatedNotification.title}</h5>
@@ -462,6 +468,7 @@ export default function App() {
           onNavigatePrev={handleNavigatePrev}
           onNavigateNext={handleNavigateNext}
           onNavigateToday={handleNavigateToday}
+          onNavigateHome={handleNavigateHome}
           isSidebarOpen={isSidebarOpen}
           onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
           searchQuery={searchQuery}
