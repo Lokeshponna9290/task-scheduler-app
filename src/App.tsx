@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { ScheduleEvent, CalendarViewType, VoiceAccentId, ChimeType, ActiveAlarm, CATEGORY_CONFIGS } from './types';
+import { ScheduleEvent, CalendarViewType, VoiceAccentId, ChimeType, ActiveAlarm } from './types';
 import { VOICE_ACCENTS, speakText, playChime } from './utils/audio';
 import { toDateKey, isToday, formatTime12h, getWeekDays } from './utils/dateUtils';
 import AppleCalendarHeader from './components/AppleCalendarHeader';
@@ -11,11 +11,10 @@ import AppleYearView from './components/views/AppleYearView';
 import AppleEventModal from './components/AppleEventModal';
 import AppleAlarmModal from './components/AppleAlarmModal';
 import VoiceSettings from './components/VoiceSettings';
-import DeploymentGuide from './components/DeploymentGuide';
 import AppLogo from './components/AppLogo';
 import { 
-  Bell, X, Smartphone, Check, Clock, Calendar as CalendarIcon, 
-  Volume2, Sparkles, Wifi, Battery, ChevronRight
+  X, Check, Clock, Calendar as CalendarIcon, 
+  Volume2, Settings2
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
@@ -171,9 +170,8 @@ export default function App() {
   );
   const [searchQuery, setSearchQuery] = useState('');
 
-  // App Level Tabs & Modes
-  const [activeTab, setActiveTab] = useState<'calendar' | 'voice' | 'guide'>('calendar');
-  const [frameMode, setFrameMode] = useState<'desktop' | 'mobile'>('desktop');
+  // Preferences modal
+  const [isPreferencesOpen, setIsPreferencesOpen] = useState(false);
 
   // Active Voice & Chime defaults
   const [currentAccent, setCurrentAccent] = useState<VoiceAccentId>('en-IN');
@@ -453,293 +451,103 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Main Container: macOS App Window or iPhone Simulator Frame */}
-      {frameMode === 'desktop' ? (
+      {/* Main Container: Clean macOS Calendar App Window */}
+      <div className="w-full max-w-[1440px] h-[92vh] max-h-[920px] bg-white rounded-2xl border border-black/10 shadow-apple-card flex flex-col overflow-hidden relative">
         
-        /* --- macOS Window Frame --- */
-        <div className="w-full max-w-[1440px] h-[92vh] max-h-[920px] bg-white rounded-2xl border border-black/10 shadow-apple-card flex flex-col overflow-hidden relative">
-          
-          {/* macOS Apple Calendar Header Toolbar */}
-          <AppleCalendarHeader
-            currentDate={currentDate}
-            viewType={viewType}
-            onViewTypeChange={setViewType}
-            onNavigatePrev={handleNavigatePrev}
-            onNavigateNext={handleNavigateNext}
-            onNavigateToday={handleNavigateToday}
-            isSidebarOpen={isSidebarOpen}
-            onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
-            searchQuery={searchQuery}
-            onSearchChange={setSearchQuery}
-            onOpenNewEventModal={() => handleOpenNewEvent()}
-            activeTab={activeTab}
-            onTabChange={setActiveTab}
-            frameMode={frameMode}
-            onFrameModeChange={setFrameMode}
-          />
+        {/* macOS Apple Calendar Header Toolbar */}
+        <AppleCalendarHeader
+          currentDate={currentDate}
+          viewType={viewType}
+          onViewTypeChange={setViewType}
+          onNavigatePrev={handleNavigatePrev}
+          onNavigateNext={handleNavigateNext}
+          onNavigateToday={handleNavigateToday}
+          isSidebarOpen={isSidebarOpen}
+          onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          onOpenNewEventModal={() => handleOpenNewEvent()}
+          onOpenPreferences={() => setIsPreferencesOpen(true)}
+        />
 
-          {/* Main Content Workspace */}
-          <div className="flex-1 flex overflow-hidden">
-            
-            {/* Collapsible Apple Sidebar */}
-            {isSidebarOpen && (
-              <AppleCalendarSidebar
+        {/* Main Content Workspace */}
+        <div className="flex-1 flex overflow-hidden">
+          
+          {/* Collapsible Apple Sidebar */}
+          {isSidebarOpen && (
+            <AppleCalendarSidebar
+              currentDate={currentDate}
+              onSelectDate={setCurrentDate}
+              events={events}
+              selectedCategories={selectedCategories}
+              onToggleCategory={handleToggleCategory}
+              onOpenNewEventModal={() => handleOpenNewEvent()}
+              onSelectEvent={handleEditEvent}
+              activeAccent={currentAccent}
+              onChangeAccent={setCurrentAccent}
+              activeChime={currentChime}
+              onChangeChime={setCurrentChime}
+            />
+          )}
+
+          {/* Core Calendar Views */}
+          <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-white">
+            {viewType === 'day' && (
+              <AppleDayView
                 currentDate={currentDate}
-                onSelectDate={setCurrentDate}
-                events={events}
+                events={filteredEvents}
                 selectedCategories={selectedCategories}
-                onToggleCategory={handleToggleCategory}
-                onOpenNewEventModal={() => handleOpenNewEvent()}
                 onSelectEvent={handleEditEvent}
+                onToggleComplete={handleToggleComplete}
+                onDeleteEvent={handleDeleteEvent}
+                onQuickAddAtTime={(timeStr) => handleOpenNewEvent(toDateKey(currentDate), timeStr)}
                 activeAccent={currentAccent}
-                onChangeAccent={setCurrentAccent}
-                activeChime={currentChime}
-                onChangeChime={setCurrentChime}
               />
             )}
 
-            {/* Views Router */}
-            <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-white">
-              {activeTab === 'calendar' && (
-                <>
-                  {viewType === 'day' && (
-                    <AppleDayView
-                      currentDate={currentDate}
-                      events={filteredEvents}
-                      selectedCategories={selectedCategories}
-                      onSelectEvent={handleEditEvent}
-                      onToggleComplete={handleToggleComplete}
-                      onDeleteEvent={handleDeleteEvent}
-                      onQuickAddAtTime={(timeStr) => handleOpenNewEvent(toDateKey(currentDate), timeStr)}
-                      activeAccent={currentAccent}
-                    />
-                  )}
+            {viewType === 'week' && (
+              <AppleWeekView
+                currentDate={currentDate}
+                events={filteredEvents}
+                selectedCategories={selectedCategories}
+                onSelectDate={setCurrentDate}
+                onSelectEvent={handleEditEvent}
+                onToggleComplete={handleToggleComplete}
+                onDeleteEvent={handleDeleteEvent}
+                onQuickAddAtDateAndTime={(dateKey, timeStr) => handleOpenNewEvent(dateKey, timeStr)}
+              />
+            )}
 
-                  {viewType === 'week' && (
-                    <AppleWeekView
-                      currentDate={currentDate}
-                      events={filteredEvents}
-                      selectedCategories={selectedCategories}
-                      onSelectDate={setCurrentDate}
-                      onSelectEvent={handleEditEvent}
-                      onToggleComplete={handleToggleComplete}
-                      onDeleteEvent={handleDeleteEvent}
-                      onQuickAddAtDateAndTime={(dateKey, timeStr) => handleOpenNewEvent(dateKey, timeStr)}
-                    />
-                  )}
+            {viewType === 'month' && (
+              <AppleMonthView
+                currentDate={currentDate}
+                events={filteredEvents}
+                selectedCategories={selectedCategories}
+                onSelectDate={setCurrentDate}
+                onSelectEvent={handleEditEvent}
+                onOpenNewEventModalForDate={(dateKey) => handleOpenNewEvent(dateKey)}
+                onDoubleSelectDate={(d) => {
+                  setCurrentDate(d);
+                  setViewType('day');
+                }}
+              />
+            )}
 
-                  {viewType === 'month' && (
-                    <AppleMonthView
-                      currentDate={currentDate}
-                      events={filteredEvents}
-                      selectedCategories={selectedCategories}
-                      onSelectDate={setCurrentDate}
-                      onSelectEvent={handleEditEvent}
-                      onOpenNewEventModalForDate={(dateKey) => handleOpenNewEvent(dateKey)}
-                      onDoubleSelectDate={(d) => {
-                        setCurrentDate(d);
-                        setViewType('day');
-                      }}
-                    />
-                  )}
+            {viewType === 'year' && (
+              <AppleYearView
+                currentDate={currentDate}
+                events={filteredEvents}
+                selectedCategories={selectedCategories}
+                onSelectDateAndSwitchToDay={(d) => {
+                  setCurrentDate(d);
+                  setViewType('month');
+                }}
+              />
+            )}
+          </main>
 
-                  {viewType === 'year' && (
-                    <AppleYearView
-                      currentDate={currentDate}
-                      events={filteredEvents}
-                      selectedCategories={selectedCategories}
-                      onSelectDateAndSwitchToDay={(d) => {
-                        setCurrentDate(d);
-                        setViewType('month');
-                      }}
-                    />
-                  )}
-                </>
-              )}
-
-              {activeTab === 'voice' && (
-                <div className="flex-1 p-6 overflow-y-auto bg-[#F6F6F8]/50">
-                  <div className="max-w-4xl mx-auto">
-                    <VoiceSettings
-                      currentAccent={currentAccent}
-                      setCurrentAccent={setCurrentAccent}
-                      currentChime={currentChime}
-                      setCurrentChime={setCurrentChime}
-                      onShowSimulatedNotification={(title, message) => {
-                        setSimulatedNotification({ title, message });
-                        setTimeout(() => setSimulatedNotification(null), 5000);
-                      }}
-                    />
-                  </div>
-                </div>
-              )}
-
-              {activeTab === 'guide' && (
-                <div className="flex-1 p-6 overflow-y-auto bg-[#F6F6F8]/50">
-                  <div className="max-w-4xl mx-auto">
-                    <DeploymentGuide />
-                  </div>
-                </div>
-              )}
-            </main>
-
-          </div>
         </div>
-
-      ) : (
-
-        /* --- iPhone 16 Pro Simulator Frame --- */
-        <div className="w-[390px] h-[844px] bg-black rounded-[52px] p-3.5 shadow-2xl border-[4px] border-neutral-700 relative overflow-hidden flex flex-col">
-          
-          {/* iPhone Glass Screen */}
-          <div className="w-full h-full bg-white rounded-[44px] overflow-hidden flex flex-col relative">
-            
-            {/* iOS Dynamic Island & Status Bar */}
-            <div className="h-11 bg-white flex items-center justify-between px-7 shrink-0 select-none z-40 relative">
-              <span className="text-xs font-bold font-sans text-neutral-900">{clockString}</span>
-              
-              {/* Dynamic Island Pill */}
-              <div className="w-24 h-6 bg-black rounded-full absolute left-1/2 -translate-x-1/2 top-2 flex items-center justify-between px-2.5">
-                <div className="w-2.5 h-2.5 rounded-full bg-neutral-900" />
-                <div className="w-2 h-2 rounded-full bg-blue-900/40" />
-              </div>
-
-              {/* Status Icons */}
-              <div className="flex items-center gap-1.5 text-neutral-900">
-                <Wifi className="w-3.5 h-3.5" />
-                <Battery className="w-4 h-4" />
-              </div>
-            </div>
-
-            {/* Mobile Header Bar */}
-            <div className="px-4 py-2 bg-[#F6F6F8] border-b border-black/[0.06] flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <AppLogo size={28} />
-                <div>
-                  <span className="text-[10px] font-bold text-[#FF3B30] uppercase tracking-wider block">
-                    {currentDate.toLocaleDateString('en-US', { month: 'short', year: 'numeric' })}
-                  </span>
-                  <h3 className="text-sm font-bold text-neutral-900 leading-tight">
-                    {currentDate.toLocaleDateString('en-US', { weekday: 'short', day: 'numeric' })}
-                  </h3>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleOpenNewEvent()}
-                  className="w-7 h-7 rounded-full bg-[#FF3B30] text-white flex items-center justify-center shadow-xs"
-                >
-                  <span className="text-base font-bold leading-none">+</span>
-                </button>
-                <button
-                  onClick={() => setFrameMode('desktop')}
-                  className="px-2 py-1 rounded bg-neutral-200 text-[10px] font-semibold text-neutral-700"
-                >
-                  Exit Frame
-                </button>
-              </div>
-            </div>
-
-            {/* Mobile Segmented View Control */}
-            <div className="px-4 py-1.5 bg-[#F6F6F8] border-b border-black/[0.06] flex gap-1">
-              {(['day', 'week', 'month'] as CalendarViewType[]).map((v) => (
-                <button
-                  key={v}
-                  onClick={() => setViewType(v)}
-                  className={`flex-1 py-1 rounded-md text-xs font-semibold capitalize transition ${
-                    viewType === v ? 'bg-white text-black shadow-xs' : 'text-neutral-500'
-                  }`}
-                >
-                  {v}
-                </button>
-              ))}
-            </div>
-
-            {/* Mobile Calendar Body */}
-            <div className="flex-1 overflow-y-auto bg-white">
-              {viewType === 'day' && (
-                <AppleDayView
-                  currentDate={currentDate}
-                  events={filteredEvents}
-                  selectedCategories={selectedCategories}
-                  onSelectEvent={handleEditEvent}
-                  onToggleComplete={handleToggleComplete}
-                  onDeleteEvent={handleDeleteEvent}
-                  onQuickAddAtTime={(timeStr) => handleOpenNewEvent(toDateKey(currentDate), timeStr)}
-                  activeAccent={currentAccent}
-                />
-              )}
-              {viewType === 'week' && (
-                <AppleWeekView
-                  currentDate={currentDate}
-                  events={filteredEvents}
-                  selectedCategories={selectedCategories}
-                  onSelectDate={setCurrentDate}
-                  onSelectEvent={handleEditEvent}
-                  onToggleComplete={handleToggleComplete}
-                  onDeleteEvent={handleDeleteEvent}
-                  onQuickAddAtDateAndTime={(dateKey, timeStr) => handleOpenNewEvent(dateKey, timeStr)}
-                />
-              )}
-              {viewType === 'month' && (
-                <AppleMonthView
-                  currentDate={currentDate}
-                  events={filteredEvents}
-                  selectedCategories={selectedCategories}
-                  onSelectDate={setCurrentDate}
-                  onSelectEvent={handleEditEvent}
-                  onOpenNewEventModalForDate={(dateKey) => handleOpenNewEvent(dateKey)}
-                  onDoubleSelectDate={(d) => {
-                    setCurrentDate(d);
-                    setViewType('day');
-                  }}
-                />
-              )}
-            </div>
-
-            {/* iOS Bottom Navigation Bar */}
-            <div className="h-16 bg-[#F6F6F8] border-t border-black/[0.08] px-6 flex items-center justify-around shrink-0">
-              <button
-                onClick={() => setActiveTab('calendar')}
-                className={`flex flex-col items-center gap-0.5 text-[10px] font-semibold ${
-                  activeTab === 'calendar' ? 'text-[#FF3B30]' : 'text-neutral-400'
-                }`}
-              >
-                <CalendarIcon className="w-5 h-5" />
-                <span>Today</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('voice')}
-                className={`flex flex-col items-center gap-0.5 text-[10px] font-semibold ${
-                  activeTab === 'voice' ? 'text-[#FF3B30]' : 'text-neutral-400'
-                }`}
-              >
-                <Volume2 className="w-5 h-5" />
-                <span>Voice</span>
-              </button>
-
-              <button
-                onClick={() => setActiveTab('guide')}
-                className={`flex flex-col items-center gap-0.5 text-[10px] font-semibold ${
-                  activeTab === 'guide' ? 'text-[#FF3B30]' : 'text-neutral-400'
-                }`}
-              >
-                <Smartphone className="w-5 h-5" />
-                <span>iOS</span>
-              </button>
-            </div>
-
-            {/* iOS Home Indicator Bar */}
-            <div className="h-4 bg-[#F6F6F8] flex items-center justify-center shrink-0">
-              <div className="w-32 h-1 bg-black rounded-full" />
-            </div>
-
-          </div>
-        </div>
-
-      )}
+      </div>
 
       {/* Apple Event Create / Edit Inspector Modal */}
       <AppleEventModal
@@ -751,6 +559,45 @@ export default function App() {
         onSaveEvent={handleSaveEvent}
         onDeleteEvent={handleDeleteEvent}
       />
+
+      {/* Apple Preferences / Audio Studio Modal */}
+      <AnimatePresence>
+        {isPreferencesOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/40 backdrop-blur-xs select-none">
+            <motion.div
+              initial={{ opacity: 0, scale: 0.95, y: 10 }}
+              animate={{ opacity: 1, scale: 1, y: 0 }}
+              exit={{ opacity: 0, scale: 0.95, y: 10 }}
+              className="w-full max-w-2xl bg-white rounded-2xl border border-black/10 shadow-2xl overflow-hidden flex flex-col max-h-[85vh]"
+            >
+              <div className="px-5 py-3.5 border-b border-black/[0.08] flex items-center justify-between bg-[#F6F6F8]">
+                <h3 className="text-sm font-bold text-neutral-900">
+                  Voice & Audio Preferences
+                </h3>
+                <button
+                  onClick={() => setIsPreferencesOpen(false)}
+                  className="p-1 rounded-full text-neutral-400 hover:text-black hover:bg-neutral-200 transition"
+                >
+                  <X className="w-4 h-4" />
+                </button>
+              </div>
+
+              <div className="p-6 overflow-y-auto">
+                <VoiceSettings
+                  currentAccent={currentAccent}
+                  setCurrentAccent={setCurrentAccent}
+                  currentChime={currentChime}
+                  setCurrentChime={setCurrentChime}
+                  onShowSimulatedNotification={(title, message) => {
+                    setSimulatedNotification({ title, message });
+                    setTimeout(() => setSimulatedNotification(null), 5000);
+                  }}
+                />
+              </div>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
 
     </div>
   );

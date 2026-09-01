@@ -2,8 +2,7 @@ import React from 'react';
 import { CalendarViewType } from '../types';
 import { 
   ChevronLeft, ChevronRight, Plus, Search, 
-  PanelLeftClose, PanelLeft, Volume2, Smartphone, 
-  Monitor, Calendar, Sparkles, Check
+  PanelLeftClose, PanelLeft, Settings2
 } from 'lucide-react';
 import { MONTH_NAMES, MONTH_SHORT_NAMES, getWeekDays } from '../utils/dateUtils';
 import AppLogo from './AppLogo';
@@ -20,10 +19,7 @@ interface AppleCalendarHeaderProps {
   searchQuery: string;
   onSearchChange: (query: string) => void;
   onOpenNewEventModal: () => void;
-  activeTab: 'calendar' | 'voice' | 'guide';
-  onTabChange: (tab: 'calendar' | 'voice' | 'guide') => void;
-  frameMode: 'desktop' | 'mobile';
-  onFrameModeChange: (mode: 'desktop' | 'mobile') => void;
+  onOpenPreferences?: () => void;
 }
 
 export default function AppleCalendarHeader({
@@ -38,10 +34,7 @@ export default function AppleCalendarHeader({
   searchQuery,
   onSearchChange,
   onOpenNewEventModal,
-  activeTab,
-  onTabChange,
-  frameMode,
-  onFrameModeChange,
+  onOpenPreferences,
 }: AppleCalendarHeaderProps) {
 
   // Generate header title based on current view and date
@@ -83,7 +76,7 @@ export default function AppleCalendarHeader({
   return (
     <header className="h-14 bg-white/90 backdrop-blur-md border-b border-black/[0.08] px-4 flex items-center justify-between select-none shrink-0 z-30 transition-all">
       
-      {/* Left controls: Traffic lights & Navigation Cluster */}
+      {/* Left controls: Traffic lights, Logo, Sidebar Toggle & Navigation */}
       <div className="flex items-center gap-3 md:gap-4">
         
         {/* macOS Window Controls */}
@@ -102,7 +95,7 @@ export default function AppleCalendarHeader({
         <button
           onClick={onToggleSidebar}
           className="p-1.5 rounded-lg text-neutral-600 hover:text-black hover:bg-neutral-100 transition"
-          title={isSidebarOpen ? "Hide Calendar Sidebar" : "Show Calendar Sidebar"}
+          title={isSidebarOpen ? "Hide Sidebar" : "Show Sidebar"}
         >
           {isSidebarOpen ? <PanelLeftClose className="w-4 h-4" /> : <PanelLeft className="w-4 h-4" />}
         </button>
@@ -144,28 +137,26 @@ export default function AppleCalendarHeader({
       </div>
 
       {/* Center: Apple Segmented View Switcher */}
-      {activeTab === 'calendar' && (
-        <div className="hidden lg:flex items-center bg-neutral-100 p-0.5 rounded-lg border border-neutral-200/70">
-          {viewOptions.map((opt) => {
-            const isActive = viewType === opt.id;
-            return (
-              <button
-                key={opt.id}
-                onClick={() => onViewTypeChange(opt.id)}
-                className={`px-3.5 py-1 text-xs font-medium rounded-md transition-all duration-150 ${
-                  isActive
-                    ? 'bg-white text-neutral-900 shadow-sm font-semibold'
-                    : 'text-neutral-600 hover:text-neutral-900'
-                }`}
-              >
-                {opt.label}
-              </button>
-            );
-          })}
-        </div>
-      )}
+      <div className="hidden sm:flex items-center bg-neutral-100 p-0.5 rounded-lg border border-neutral-200/70">
+        {viewOptions.map((opt) => {
+          const isActive = viewType === opt.id;
+          return (
+            <button
+              key={opt.id}
+              onClick={() => onViewTypeChange(opt.id)}
+              className={`px-3.5 py-1 text-xs font-medium rounded-md transition-all duration-150 ${
+                isActive
+                  ? 'bg-white text-neutral-900 shadow-sm font-semibold'
+                  : 'text-neutral-600 hover:text-neutral-900'
+              }`}
+            >
+              {opt.label}
+            </button>
+          );
+        })}
+      </div>
 
-      {/* Right controls: Search, Quick Add, Tabs & Device Switcher */}
+      {/* Right controls: Search & Quick Add */}
       <div className="flex items-center gap-2 md:gap-3">
         
         {/* Search Bar */}
@@ -195,63 +186,18 @@ export default function AppleCalendarHeader({
           title="Create New Event (⌘N)"
         >
           <Plus className="w-3.5 h-3.5 stroke-[2.5]" />
-          <span className="hidden sm:inline">Event</span>
+          <span>New Event</span>
         </button>
 
-        <div className="w-[1px] h-4 bg-neutral-200 hidden sm:block" />
-
-        {/* Tab Switchers: Calendar / Voice Settings / iOS Guide */}
-        <div className="flex items-center bg-neutral-100 p-0.5 rounded-lg border border-neutral-200/70 text-xs">
+        {onOpenPreferences && (
           <button
-            onClick={() => onTabChange('calendar')}
-            className={`p-1.5 rounded-md transition ${
-              activeTab === 'calendar' ? 'bg-white text-black shadow-xs font-semibold' : 'text-neutral-500 hover:text-black'
-            }`}
-            title="Calendar View"
+            onClick={onOpenPreferences}
+            className="p-1.5 rounded-md hover:bg-neutral-100 text-neutral-500 hover:text-black transition"
+            title="Audio & Voice Preferences"
           >
-            <Calendar className="w-3.5 h-3.5" />
+            <Settings2 className="w-4 h-4" />
           </button>
-          <button
-            onClick={() => onTabChange('voice')}
-            className={`p-1.5 rounded-md transition ${
-              activeTab === 'voice' ? 'bg-white text-black shadow-xs font-semibold' : 'text-neutral-500 hover:text-black'
-            }`}
-            title="Voice & Accent Settings"
-          >
-            <Volume2 className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={() => onTabChange('guide')}
-            className={`p-1.5 rounded-md transition ${
-              activeTab === 'guide' ? 'bg-white text-black shadow-xs font-semibold' : 'text-neutral-500 hover:text-black'
-            }`}
-            title="iOS Native App Guide"
-          >
-            <Smartphone className="w-3.5 h-3.5" />
-          </button>
-        </div>
-
-        {/* Frame Mode Switcher (Desktop vs iPhone Simulator) */}
-        <div className="hidden sm:flex items-center bg-neutral-100 p-0.5 rounded-lg border border-neutral-200/70">
-          <button
-            onClick={() => onFrameModeChange('desktop')}
-            className={`p-1.5 rounded-md transition ${
-              frameMode === 'desktop' ? 'bg-white text-black shadow-xs' : 'text-neutral-400 hover:text-neutral-700'
-            }`}
-            title="macOS Desktop Mode"
-          >
-            <Monitor className="w-3.5 h-3.5" />
-          </button>
-          <button
-            onClick={() => onFrameModeChange('mobile')}
-            className={`p-1.5 rounded-md transition ${
-              frameMode === 'mobile' ? 'bg-white text-black shadow-xs' : 'text-neutral-400 hover:text-neutral-700'
-            }`}
-            title="iPhone Simulator Mode"
-          >
-            <Smartphone className="w-3.5 h-3.5" />
-          </button>
-        </div>
+        )}
       </div>
     </header>
   );
