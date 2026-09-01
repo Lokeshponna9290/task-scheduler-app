@@ -1,13 +1,9 @@
 services:
   - type: web
-    name: daily-schedule-reminder
-    env: static
-    buildCommand: npm run build
-    publishDir: dist
+    name: task-scheduler-app
+    env: node
+    buildCommand: npm install && npm run build
+    startCommand: npm start
     envVars:
       - key: NODE_VERSION
         value: 20
-    routes:
-      - type: rewrite
-        source: /*
-        destination: /index.html
