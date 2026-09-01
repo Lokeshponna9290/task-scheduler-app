@@ -260,36 +260,6 @@ export default function AppleCalendarSidebar({
         </div>
       )}
 
-      {/* 4. User Account Profile Footer Pill */}
-      <div className="p-3 border-t border-black/[0.06] bg-white/70">
-        <button
-          onClick={onOpenAccount}
-          className="w-full flex items-center justify-between p-2 rounded-xl hover:bg-black/[0.04] active:scale-98 transition text-left group"
-          title="View Account Details"
-        >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div 
-              className="w-8 h-8 rounded-full flex items-center justify-center text-white text-xs font-bold shadow-xs shrink-0"
-              style={{ background: userProfile.avatarColor || 'linear-gradient(135deg, #0077FE 0%, #0051D4 100%)' }}
-            >
-              {initials}
-            </div>
-            <div className="flex-1 min-w-0">
-              <h5 className="text-xs font-bold text-neutral-800 truncate group-hover:text-[#007AFF] transition">
-                {userProfile.name}
-              </h5>
-              <div className="flex items-center gap-1 text-[10px] text-emerald-600 font-medium">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />
-                <span>Online</span>
-              </div>
-            </div>
-          </div>
-          <span className="text-[10px] font-bold text-neutral-400 group-hover:text-neutral-700 transition px-1.5 py-0.5 rounded bg-neutral-100 border border-neutral-200">
-            Account
-          </span>
-        </button>
-      </div>
-
     </aside>
   );
 }
