@@ -3,6 +3,12 @@ import { ScheduleEvent, CalendarViewType, VoiceAccentId, ChimeType, ActiveAlarm 
 import { VOICE_ACCENTS, speakText, playChime } from './utils/audio';
 import { toDateKey, isToday, formatTime12h, getWeekDays } from './utils/dateUtils';
 import { checkFocusConflict } from './utils/focusShieldUtils';
+import { 
+  recoverLegacyEvents, 
+  fetchEventsFromDatabase, 
+  saveEventsToDatabase, 
+  saveProfileToDatabase 
+} from './utils/database';
 import AppleCalendarHeader from './components/AppleCalendarHeader';
 import AppleCalendarSidebar from './components/AppleCalendarSidebar';
 import AppleDayView from './components/views/AppleDayView';
@@ -17,11 +23,11 @@ import VoiceSettings from './components/VoiceSettings';
 import AppLogo from './components/AppLogo';
 import { 
   X, Check, Clock, Calendar as CalendarIcon, 
-  Volume2, Settings2, User, ShieldCheck
+  Volume2, Settings2, User, ShieldCheck, Database
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-// Pre-populate with realistic events distributed across today and this week with Focus Shield levels
+// Fallback seed events if database is completely empty
 const getInitialEvents = (): ScheduleEvent[] => {
   const today = new Date();
   const todayKey = toDateKey(today);
@@ -166,17 +172,11 @@ const DEFAULT_USER_PROFILE: UserProfile = {
 };
 
 export default function App() {
-  // Calendar Events state
+  // Calendar Events state with legacy data recovery
   const [events, setEvents] = useState<ScheduleEvent[]>(() => {
-    if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('apple_calendar_events_v3');
-      if (saved) {
-        try {
-          return JSON.parse(saved);
-        } catch (e) {
-          console.error("Failed to parse stored events", e);
-        }
-      }
+    const legacy = recoverLegacyEvents();
+    if (legacy && legacy.length > 0) {
+      return legacy;
     }
     return getInitialEvents();
   });
@@ -236,17 +236,29 @@ export default function App() {
   const [simulatedNotification, setSimulatedNotification] = useState<{ title: string; message: string } | null>(null);
   const triggeredMinutes = useRef<Set<string>>(new Set());
 
-  // Local storage persistence
+  // Immediate Initial Connection to Persistent Database Server on Mount
   useEffect(() => {
-    localStorage.setItem('apple_calendar_events_v3', JSON.stringify(events));
+    let isMounted = true;
+    fetchEventsFromDatabase().then(({ events: fetchedEvents }) => {
+      if (isMounted && fetchedEvents && fetchedEvents.length > 0) {
+        setEvents(fetchedEvents);
+      }
+    });
+
+    return () => {
+      isMounted = false;
+    };
+  }, []);
+
+  // Sync to database & localStorage whenever events change
+  useEffect(() => {
+    saveEventsToDatabase(events);
   }, [events]);
 
-  useEffect(() => {
-    localStorage.setItem('scheduler_user_profile', JSON.stringify(userProfile));
-  }, [userProfile]);
-
   const handleUpdateProfile = (updated: Partial<UserProfile>) => {
-    setUserProfile(prev => ({ ...prev, ...updated }));
+    const newProf = { ...userProfile, ...updated };
+    setUserProfile(newProf);
+    saveProfileToDatabase(newProf);
   };
 
   // Live Timer and Alarm Trigger
@@ -322,7 +334,7 @@ export default function App() {
     }
   };
 
-  // Handlers for Event actions with Focus Shield conflict interception
+  // Handlers for Event actions with Focus Shield conflict interception and Immediate DB Sync
   const handleSaveEvent = (
     eventData: Omit<ScheduleEvent, 'id'>, 
     existingId?: string, 
@@ -343,15 +355,19 @@ export default function App() {
       }
     }
 
+    let nextEvents: ScheduleEvent[];
     if (existingId) {
-      setEvents(prev => prev.map(e => e.id === existingId ? { ...eventData, id: existingId } : e));
+      nextEvents = events.map(e => e.id === existingId ? { ...eventData, id: existingId } : e);
     } else {
       const newEvent: ScheduleEvent = {
         ...eventData,
         id: Date.now().toString(),
       };
-      setEvents(prev => [...prev, newEvent]);
+      nextEvents = [...events, newEvent];
     }
+
+    setEvents(nextEvents);
+    saveEventsToDatabase(nextEvents); // Immediate persistent database write
   };
 
   // Reschedule to suggested conflict-free slot
@@ -379,12 +395,16 @@ export default function App() {
   };
 
   const handleToggleComplete = (id: string) => {
-    setEvents(prev => prev.map(e => e.id === id ? { ...e, completed: !e.completed } : e));
+    const updated = events.map(e => e.id === id ? { ...e, completed: !e.completed } : e);
+    setEvents(updated);
+    saveEventsToDatabase(updated); // Immediate persistent database write
     playChime('digital');
   };
 
   const handleDeleteEvent = (id: string) => {
-    setEvents(prev => prev.filter(e => e.id !== id));
+    const updated = events.filter(e => e.id !== id);
+    setEvents(updated);
+    saveEventsToDatabase(updated); // Immediate persistent database write
   };
 
   // Alarm actions
@@ -401,12 +421,15 @@ export default function App() {
     }
     const snoozedTimeStr = `${String(newH).padStart(2, '0')}:${String(newM).padStart(2, '0')}`;
 
-    setEvents(prev => prev.map(e => {
+    const updated = events.map(e => {
       if (e.id === activeAlarm.eventId) {
         return { ...e, time: snoozedTimeStr };
       }
       return e;
-    }));
+    });
+
+    setEvents(updated);
+    saveEventsToDatabase(updated);
 
     if (typeof window !== 'undefined' && window.speechSynthesis) {
       window.speechSynthesis.cancel();
