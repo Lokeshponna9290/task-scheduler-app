@@ -3,11 +3,13 @@ import { ScheduleEvent, CalendarViewType, VoiceAccentId, ChimeType, ActiveAlarm 
 import { VOICE_ACCENTS, speakText, playChime } from './utils/audio';
 import { toDateKey, isToday, formatTime12h, getWeekDays } from './utils/dateUtils';
 import { checkFocusConflict, calculateFocusScore } from './utils/focusShieldUtils';
+import { GoogleUser, getStoredGoogleUser } from './utils/googleAuth';
 import { 
   recoverLegacyEvents, 
   fetchEventsFromDatabase, 
   saveEventsToDatabase, 
-  saveProfileToDatabase 
+  saveProfileToDatabase,
+  getActiveUserId 
 } from './utils/database';
 import AppleCalendarHeader from './components/AppleCalendarHeader';
 import AppleCalendarSidebar from './components/AppleCalendarSidebar';
@@ -18,6 +20,7 @@ import AppleYearView from './components/views/AppleYearView';
 import AppleEventModal from './components/AppleEventModal';
 import AppleAlarmModal from './components/AppleAlarmModal';
 import AppleAccountModal, { UserProfile } from './components/AppleAccountModal';
+import GoogleSignInModal from './components/GoogleSignInModal';
 import FocusShieldConflictModal from './components/FocusShieldConflictModal';
 import MobileBottomNav from './components/MobileBottomNav';
 import VoiceSettings from './components/VoiceSettings';
@@ -167,9 +170,10 @@ const DEFAULT_USER_PROFILE: UserProfile = {
   name: 'Lokesh Reddy',
   email: 'lokeshreddyponna@gmail.com',
   avatarColor: 'linear-gradient(135deg, #0077FE 0%, #0051D4 100%)',
-  membership: 'Pro Member',
+  membership: 'Google Cloud Pro',
   syncStatus: 'synced',
   lastSyncedAt: 'Just now',
+  isGoogleConnected: true,
 };
 
 export default function App() {
@@ -185,10 +189,20 @@ export default function App() {
   // User Profile Account state
   const [userProfile, setUserProfile] = useState<UserProfile>(() => {
     if (typeof window !== 'undefined') {
+      const savedGoogleUser = getStoredGoogleUser();
       const saved = localStorage.getItem('scheduler_user_profile');
       if (saved) {
         try {
-          return JSON.parse(saved);
+          const parsed = JSON.parse(saved);
+          if (savedGoogleUser) {
+            return {
+              ...parsed,
+              name: savedGoogleUser.name || parsed.name,
+              email: savedGoogleUser.email || parsed.email,
+              isGoogleConnected: true,
+            };
+          }
+          return parsed;
         } catch (e) {
           console.error("Failed to parse user profile", e);
         }
@@ -197,8 +211,9 @@ export default function App() {
     return DEFAULT_USER_PROFILE;
   });
 
-  // Account modal state
+  // Account modal state & Google Sign-In modal state
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
+  const [isGoogleSignInOpen, setIsGoogleSignInOpen] = useState(false);
 
   // Focus Shield Conflict Interception State
   const [conflictModalData, setConflictModalData] = useState<{
@@ -256,7 +271,7 @@ export default function App() {
     return () => window.removeEventListener('resize', handleResize);
   }, [isSidebarOpen]);
 
-  // Immediate Initial Connection to Persistent Database Server on Mount
+  // Immediate Initial Connection to Persistent Cloud Database on Mount
   useEffect(() => {
     let isMounted = true;
     fetchEventsFromDatabase().then(({ events: fetchedEvents }) => {
@@ -270,7 +285,7 @@ export default function App() {
     };
   }, []);
 
-  // Sync to database & localStorage whenever events change
+  // Sync to cloud database & localStorage whenever events change
   useEffect(() => {
     saveEventsToDatabase(events);
   }, [events]);
@@ -279,6 +294,36 @@ export default function App() {
     const newProf = { ...userProfile, ...updated };
     setUserProfile(newProf);
     saveProfileToDatabase(newProf);
+  };
+
+  // Google Sign-In Success Handler
+  const handleGoogleAuthSuccess = async (googleUser: GoogleUser) => {
+    const updatedProf: UserProfile = {
+      ...userProfile,
+      name: googleUser.name,
+      email: googleUser.email,
+      isGoogleConnected: true,
+      membership: 'Google Cloud Pro',
+      syncStatus: 'synced',
+      lastSyncedAt: 'Just now',
+    };
+    setUserProfile(updatedProf);
+    saveProfileToDatabase(updatedProf, googleUser.email);
+
+    // Fetch user cloud events for this Google account
+    const { events: cloudEvents } = await fetchEventsFromDatabase(googleUser.email);
+    if (cloudEvents && cloudEvents.length > 0) {
+      setEvents(cloudEvents);
+    } else {
+      // Sync current events into this new Google cloud profile
+      saveEventsToDatabase(events, googleUser.email);
+    }
+
+    setSimulatedNotification({
+      title: 'Google Cloud Connected',
+      message: `Signed in as ${googleUser.email}. All schedules are backed up and synced across all your devices.`,
+    });
+    setTimeout(() => setSimulatedNotification(null), 5500);
   };
 
   // Live Timer and Alarm Trigger
@@ -806,6 +851,18 @@ export default function App() {
         onUpdateProfile={handleUpdateProfile}
         eventsCount={events.length}
         events={events}
+        onOpenGoogleSignIn={() => {
+          setIsAccountModalOpen(false);
+          setIsGoogleSignInOpen(true);
+        }}
+      />
+
+      {/* Google Sign-In & Multi-Device Sync Modal */}
+      <GoogleSignInModal
+        isOpen={isGoogleSignInOpen}
+        onClose={() => setIsGoogleSignInOpen(false)}
+        onSuccess={handleGoogleAuthSuccess}
+        currentEmail={userProfile.email}
       />
 
       {/* Apple Preferences / Audio Studio Modal */}
