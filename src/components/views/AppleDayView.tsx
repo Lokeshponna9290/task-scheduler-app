@@ -78,9 +78,9 @@ export default function AppleDayView({
   return (
     <div 
       ref={containerRef}
-      className="flex-1 h-full overflow-y-auto bg-white relative select-none"
+      className="flex-1 h-full overflow-y-auto bg-white relative select-none w-full min-w-0"
     >
-      <div className="min-w-[500px] relative pb-20">
+      <div className="w-full relative pb-20">
         
         {/* 24-Hour Timeline Grid */}
         {Array.from({ length: 24 }).map((_, hour) => {
@@ -89,11 +89,11 @@ export default function AppleDayView({
             <div 
               key={hour}
               style={{ height: `${HOUR_HEIGHT}px` }}
-              className="flex border-b border-neutral-100 group relative"
+              className="flex border-b border-neutral-100 group relative w-full"
             >
               {/* Hour Label */}
-              <div className="w-16 sm:w-20 pr-3 text-right shrink-0 -translate-y-2.5">
-                <span className="text-[11px] font-medium text-neutral-400">
+              <div className="w-12 sm:w-16 pr-2 sm:pr-3 text-right shrink-0 -translate-y-2.5">
+                <span className="text-[10px] sm:text-[11px] font-medium text-neutral-400">
                   {formatHourOnly12h(hour)}
                 </span>
               </div>
@@ -101,12 +101,12 @@ export default function AppleDayView({
               {/* Hour Content Canvas (Click to Quick Add) */}
               <div 
                 onClick={() => onQuickAddAtTime(timeStr)}
-                className="flex-1 relative border-l border-neutral-100 hover:bg-blue-50/20 cursor-pointer transition flex items-center justify-end pr-4"
+                className="flex-1 relative border-l border-neutral-100 hover:bg-blue-50/20 cursor-pointer transition flex items-center justify-end pr-3"
               >
                 {/* Subtle Plus Icon on Hover */}
                 <div className="opacity-0 group-hover:opacity-60 transition text-neutral-400 flex items-center gap-1 text-[10px]">
                   <Plus className="w-3 h-3" />
-                  <span>Add event</span>
+                  <span className="hidden sm:inline">Add event</span>
                 </div>
               </div>
             </div>
@@ -117,7 +117,7 @@ export default function AppleDayView({
         {isCurrentDayToday && (
           <div 
             style={{ top: `${liveLineTop}px` }}
-            className="absolute left-16 sm:left-20 right-0 z-20 flex items-center pointer-events-none"
+            className="absolute left-12 sm:left-16 right-0 z-20 flex items-center pointer-events-none"
           >
             {/* Red Dot */}
             <div className="w-2.5 h-2.5 rounded-full bg-[#FF3B30] -ml-1.5 shadow-sm shadow-red-400 apple-live-dot" />
@@ -127,7 +127,7 @@ export default function AppleDayView({
         )}
 
         {/* Events Overlay Container */}
-        <div className="absolute top-0 left-16 sm:left-20 right-4 bottom-0 pointer-events-none">
+        <div className="absolute top-0 left-12 sm:left-16 right-2 sm:right-4 bottom-0 pointer-events-none">
           {dayEvents.map((event) => {
             const startMins = timeStringToMinutes(event.time);
             const top = (startMins / 60) * HOUR_HEIGHT;
@@ -151,43 +151,43 @@ export default function AppleDayView({
                   backgroundColor: `${cat.color}15`,
                   borderLeftColor: isProtected && protConfig ? protConfig.color : cat.color,
                 }}
-                className={`absolute left-2 right-2 border-l-4 rounded-r-xl p-2.5 shadow-2xs hover:shadow-md transition-all cursor-pointer pointer-events-auto border border-black/[0.04] overflow-hidden group flex flex-col justify-between ${
+                className={`absolute left-1 right-1 border-l-4 rounded-r-xl p-2 sm:p-2.5 shadow-2xs hover:shadow-md transition-all cursor-pointer pointer-events-auto border border-black/[0.04] overflow-hidden group flex flex-col justify-between ${
                   isProtected && protConfig ? `${protConfig.borderLight} ${protConfig.glowClass}` : ''
                 } ${event.completed ? 'opacity-50 line-through' : ''}`}
               >
                 {/* Top: Title, Time & Actions */}
-                <div className="flex items-start justify-between gap-2">
+                <div className="flex items-start justify-between gap-1.5">
                   <div className="min-w-0 flex-1">
-                    <div className="flex items-center gap-1.5 flex-wrap">
+                    <div className="flex items-center gap-1 sm:gap-1.5 flex-wrap">
                       {isProtected && protConfig && (
                         <span 
-                          className="text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-white/90 shadow-2xs border border-indigo-200 text-indigo-950 flex items-center gap-1"
+                          className="text-[9px] sm:text-[10px] font-bold px-1.5 py-0.2 rounded-md bg-white/90 shadow-2xs border border-indigo-200 text-indigo-950 flex items-center gap-1 shrink-0"
                           title={`Focus Shield: ${protConfig.badgeLabel}`}
                         >
                           <span>{protConfig.icon}</span>
-                          <span className="hidden sm:inline">{protConfig.badgeLabel}</span>
+                          <span className="hidden xs:inline sm:inline">{protConfig.badgeLabel}</span>
                         </span>
                       )}
 
                       <span className={`text-xs font-bold text-neutral-900 line-clamp-1 ${event.completed ? 'line-through text-neutral-500' : ''}`}>
                         {event.title}
                       </span>
-                      <span className="text-[10px] font-semibold text-neutral-500 font-mono">
+                      <span className="text-[9px] sm:text-[10px] font-semibold text-neutral-500 font-mono">
                         {formatTime12h(event.time)} – {formatTime12h(endTimeStr)}
                       </span>
                     </div>
 
                     {event.notes && (
-                      <p className="text-[11px] text-neutral-600 line-clamp-1 mt-0.5">
+                      <p className="text-[10px] sm:text-[11px] text-neutral-600 line-clamp-1 mt-0.5">
                         {event.notes}
                       </p>
                     )}
                   </div>
 
-                  {/* Actions on Hover */}
+                  {/* Actions on Hover / Touch */}
                   <div 
                     onClick={(e) => e.stopPropagation()}
-                    className="flex items-center gap-1 shrink-0 opacity-80 group-hover:opacity-100 transition"
+                    className="flex items-center gap-1 shrink-0 opacity-90 transition"
                   >
                     {/* Speak Button */}
                     {event.enableVoice && (
@@ -222,7 +222,7 @@ export default function AppleDayView({
                         e.stopPropagation();
                         onDeleteEvent(event.id);
                       }}
-                      className="p-1 rounded hover:bg-red-50 text-neutral-400 hover:text-red-500 transition opacity-0 group-hover:opacity-100"
+                      className="p-1 rounded hover:bg-red-50 text-neutral-400 hover:text-red-500 transition opacity-0 group-hover:opacity-100 hidden sm:block"
                       title="Delete Event"
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -232,7 +232,7 @@ export default function AppleDayView({
 
                 {/* Bottom info: Location / duration */}
                 {height > 52 && (
-                  <div className="flex items-center gap-2 text-[10px] text-neutral-500 font-medium">
+                  <div className="flex items-center gap-2 text-[9px] sm:text-[10px] text-neutral-500 font-medium">
                     <span className="capitalize">{event.category}</span>
                     <span>•</span>
                     <span>{event.duration} mins</span>

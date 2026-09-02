@@ -2,7 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ScheduleEvent, CalendarViewType, VoiceAccentId, ChimeType, ActiveAlarm } from './types';
 import { VOICE_ACCENTS, speakText, playChime } from './utils/audio';
 import { toDateKey, isToday, formatTime12h, getWeekDays } from './utils/dateUtils';
-import { checkFocusConflict } from './utils/focusShieldUtils';
+import { checkFocusConflict, calculateFocusScore } from './utils/focusShieldUtils';
 import { 
   recoverLegacyEvents, 
   fetchEventsFromDatabase, 
@@ -19,6 +19,7 @@ import AppleEventModal from './components/AppleEventModal';
 import AppleAlarmModal from './components/AppleAlarmModal';
 import AppleAccountModal, { UserProfile } from './components/AppleAccountModal';
 import FocusShieldConflictModal from './components/FocusShieldConflictModal';
+import MobileBottomNav from './components/MobileBottomNav';
 import VoiceSettings from './components/VoiceSettings';
 import AppLogo from './components/AppLogo';
 import { 
@@ -211,7 +212,15 @@ export default function App() {
   // Calendar Navigation & Views
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
   const [viewType, setViewType] = useState<CalendarViewType>('day');
-  const [isSidebarOpen, setIsSidebarOpen] = useState(true);
+  
+  // Responsive sidebar state (open on desktop, closed on mobile by default)
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 768;
+    }
+    return true;
+  });
+
   const [selectedCategories, setSelectedCategories] = useState<Set<ScheduleEvent['category']>>(
     new Set(['work', 'personal', 'health', 'reminder'])
   );
@@ -235,6 +244,17 @@ export default function App() {
   const [activeAlarm, setActiveAlarm] = useState<ActiveAlarm | null>(null);
   const [simulatedNotification, setSimulatedNotification] = useState<{ title: string; message: string } | null>(null);
   const triggeredMinutes = useRef<Set<string>>(new Set());
+
+  // Listen to window resize for responsive sidebar behavior
+  useEffect(() => {
+    const handleResize = () => {
+      if (window.innerWidth < 768 && isSidebarOpen) {
+        setIsSidebarOpen(false);
+      }
+    };
+    window.addEventListener('resize', handleResize);
+    return () => window.removeEventListener('resize', handleResize);
+  }, [isSidebarOpen]);
 
   // Immediate Initial Connection to Persistent Database Server on Mount
   useEffect(() => {
@@ -367,7 +387,7 @@ export default function App() {
     }
 
     setEvents(nextEvents);
-    saveEventsToDatabase(nextEvents); // Immediate persistent database write
+    saveEventsToDatabase(nextEvents);
   };
 
   // Reschedule to suggested conflict-free slot
@@ -397,14 +417,14 @@ export default function App() {
   const handleToggleComplete = (id: string) => {
     const updated = events.map(e => e.id === id ? { ...e, completed: !e.completed } : e);
     setEvents(updated);
-    saveEventsToDatabase(updated); // Immediate persistent database write
+    saveEventsToDatabase(updated);
     playChime('digital');
   };
 
   const handleDeleteEvent = (id: string) => {
     const updated = events.filter(e => e.id !== id);
     setEvents(updated);
-    saveEventsToDatabase(updated); // Immediate persistent database write
+    saveEventsToDatabase(updated);
   };
 
   // Alarm actions
@@ -533,8 +553,10 @@ export default function App() {
   const formattedMins = String(currentTime.getMinutes()).padStart(2, '0');
   const clockString = `${formattedHours}:${formattedMins}`;
 
+  const focusMetrics = calculateFocusScore(events, currentDate);
+
   return (
-    <div className="min-h-screen bg-[#ECECF0] flex flex-col justify-center items-center p-0 sm:p-4 md:p-6 select-none font-sans text-neutral-900">
+    <div className="h-[100dvh] sm:min-h-screen bg-[#ECECF0] flex flex-col justify-center items-center p-0 sm:p-3 md:p-6 select-none font-sans text-neutral-900 overflow-hidden">
       
       {/* iOS / macOS Push Notification Slide-Down Toast */}
       <AnimatePresence>
@@ -578,10 +600,10 @@ export default function App() {
         )}
       </AnimatePresence>
 
-      {/* Main Container: Clean macOS Calendar App Window */}
-      <div className="w-full max-w-[1440px] h-[92vh] max-h-[920px] bg-white rounded-2xl border border-black/10 shadow-apple-card flex flex-col overflow-hidden relative">
+      {/* Main Container: Native iOS edge-to-edge on mobile, macOS window on desktop */}
+      <div className="w-full max-w-[1440px] h-full sm:h-[92vh] sm:max-h-[920px] bg-white sm:rounded-2xl border-0 sm:border sm:border-black/10 shadow-none sm:shadow-apple-card flex flex-col overflow-hidden relative">
         
-        {/* macOS Apple Calendar Header Toolbar */}
+        {/* Apple Calendar Header Toolbar */}
         <AppleCalendarHeader
           currentDate={currentDate}
           viewType={viewType}
@@ -601,25 +623,88 @@ export default function App() {
         />
 
         {/* Main Content Workspace */}
-        <div className="flex-1 flex overflow-hidden">
+        <div className="flex-1 flex overflow-hidden relative">
           
-          {/* Collapsible Apple Sidebar with Focus Score Dashboard */}
-          {isSidebarOpen && (
-            <AppleCalendarSidebar
-              currentDate={currentDate}
-              onSelectDate={setCurrentDate}
-              events={events}
-              selectedCategories={selectedCategories}
-              onToggleCategory={handleToggleCategory}
-              onOpenNewEventModal={() => handleOpenNewEvent()}
-              onSelectEvent={handleEditEvent}
-              activeAccent={currentAccent}
-              onChangeAccent={setCurrentAccent}
-              activeChime={currentChime}
-              onChangeChime={setCurrentChime}
-              userProfile={userProfile}
-            />
-          )}
+          {/* Desktop Fixed Sidebar */}
+          <div className="hidden md:flex shrink-0">
+            {isSidebarOpen && (
+              <AppleCalendarSidebar
+                currentDate={currentDate}
+                onSelectDate={setCurrentDate}
+                events={events}
+                selectedCategories={selectedCategories}
+                onToggleCategory={handleToggleCategory}
+                onOpenNewEventModal={() => handleOpenNewEvent()}
+                onSelectEvent={handleEditEvent}
+                activeAccent={currentAccent}
+                onChangeAccent={setCurrentAccent}
+                activeChime={currentChime}
+                onChangeChime={setCurrentChime}
+                userProfile={userProfile}
+              />
+            )}
+          </div>
+
+          {/* Mobile Sliding Drawer Sidebar with Backdrop */}
+          <AnimatePresence>
+            {isSidebarOpen && (
+              <div className="md:hidden fixed inset-0 z-50 flex">
+                {/* Backdrop */}
+                <motion.div
+                  initial={{ opacity: 0 }}
+                  animate={{ opacity: 1 }}
+                  exit={{ opacity: 0 }}
+                  onClick={() => setIsSidebarOpen(false)}
+                  className="fixed inset-0 bg-black/40 backdrop-blur-xs"
+                />
+
+                {/* Sliding Drawer Container */}
+                <motion.div
+                  initial={{ x: '-100%' }}
+                  animate={{ x: 0 }}
+                  exit={{ x: '-100%' }}
+                  transition={{ type: 'spring', damping: 26, stiffness: 280 }}
+                  className="relative z-10 w-72 h-full bg-[#F6F6F8] shadow-2xl flex flex-col overflow-hidden"
+                >
+                  <div className="p-3 border-b border-black/[0.08] flex items-center justify-between bg-white/80">
+                    <span className="text-xs font-bold text-neutral-900">Calendars & Focus Shield</span>
+                    <button
+                      onClick={() => setIsSidebarOpen(false)}
+                      className="p-1 rounded-full text-neutral-400 hover:text-black hover:bg-neutral-200"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  <div className="flex-1 overflow-y-auto">
+                    <AppleCalendarSidebar
+                      currentDate={currentDate}
+                      onSelectDate={(d) => {
+                        setCurrentDate(d);
+                        setIsSidebarOpen(false);
+                      }}
+                      events={events}
+                      selectedCategories={selectedCategories}
+                      onToggleCategory={handleToggleCategory}
+                      onOpenNewEventModal={() => {
+                        setIsSidebarOpen(false);
+                        handleOpenNewEvent();
+                      }}
+                      onSelectEvent={(e) => {
+                        setIsSidebarOpen(false);
+                        handleEditEvent(e);
+                      }}
+                      activeAccent={currentAccent}
+                      onChangeAccent={setCurrentAccent}
+                      activeChime={currentChime}
+                      onChangeChime={setCurrentChime}
+                      userProfile={userProfile}
+                    />
+                  </div>
+                </motion.div>
+              </div>
+            )}
+          </AnimatePresence>
 
           {/* Core Calendar Views */}
           <main className="flex-1 flex flex-col min-w-0 h-full overflow-hidden bg-white">
@@ -678,6 +763,16 @@ export default function App() {
           </main>
 
         </div>
+
+        {/* Native iOS Bottom Navigation Bar for Mobile */}
+        <MobileBottomNav
+          viewType={viewType}
+          onViewTypeChange={setViewType}
+          onToggleSidebar={() => setIsSidebarOpen(!isSidebarOpen)}
+          isSidebarOpen={isSidebarOpen}
+          focusScorePercent={focusMetrics.focusScorePercent}
+        />
+
       </div>
 
       {/* Apple Event Create / Edit Inspector Modal */}
