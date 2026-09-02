@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { ScheduleEvent, CalendarViewType, VoiceAccentId, ChimeType, ActiveAlarm } from './types';
 import { VOICE_ACCENTS, speakText, playChime } from './utils/audio';
 import { toDateKey, isToday, formatTime12h, getWeekDays } from './utils/dateUtils';
+import { checkFocusConflict } from './utils/focusShieldUtils';
 import AppleCalendarHeader from './components/AppleCalendarHeader';
 import AppleCalendarSidebar from './components/AppleCalendarSidebar';
 import AppleDayView from './components/views/AppleDayView';
@@ -11,15 +12,16 @@ import AppleYearView from './components/views/AppleYearView';
 import AppleEventModal from './components/AppleEventModal';
 import AppleAlarmModal from './components/AppleAlarmModal';
 import AppleAccountModal, { UserProfile } from './components/AppleAccountModal';
+import FocusShieldConflictModal from './components/FocusShieldConflictModal';
 import VoiceSettings from './components/VoiceSettings';
 import AppLogo from './components/AppLogo';
 import { 
   X, Check, Clock, Calendar as CalendarIcon, 
-  Volume2, Settings2, User
+  Volume2, Settings2, User, ShieldCheck
 } from 'lucide-react';
 import { motion, AnimatePresence } from 'motion/react';
 
-// Pre-populate with realistic events distributed across today and this week
+// Pre-populate with realistic events distributed across today and this week with Focus Shield levels
 const getInitialEvents = (): ScheduleEvent[] => {
   const today = new Date();
   const todayKey = toDateKey(today);
@@ -38,7 +40,8 @@ const getInitialEvents = (): ScheduleEvent[] => {
       time: '08:00',
       duration: 30,
       category: 'health',
-      completed: false,
+      protectionLevel: 'health',
+      completed: true,
       notes: 'Drink one full glass of lukewarm water and stretch',
       enableVoice: true,
       enableNotification: true,
@@ -47,13 +50,14 @@ const getInitialEvents = (): ScheduleEvent[] => {
     },
     {
       id: '2',
-      title: 'Product & Design Standup',
+      title: 'Product & Design Deep Work',
       date: todayKey,
       time: '09:30',
-      duration: 45,
+      duration: 120, // 2 hours
       category: 'work',
+      protectionLevel: 'deep-work',
       completed: false,
-      notes: 'Review calendar redesign and sprint backlog priorities',
+      notes: 'Review calendar redesign and sprint backlog priorities without interruptions',
       enableVoice: true,
       enableNotification: true,
       accent: 'en-US',
@@ -61,11 +65,12 @@ const getInitialEvents = (): ScheduleEvent[] => {
     },
     {
       id: '3',
-      title: 'Post-Lunch Walk & Relax',
+      title: 'Post-Lunch Walk & Recovery',
       date: todayKey,
       time: '13:30',
-      duration: 20,
+      duration: 30,
       category: 'health',
+      protectionLevel: 'health',
       completed: false,
       notes: 'Take a brief walk outside for fresh air',
       enableVoice: true,
@@ -80,6 +85,7 @@ const getInitialEvents = (): ScheduleEvent[] => {
       time: '15:00',
       duration: 60,
       category: 'work',
+      protectionLevel: 'flexible',
       completed: false,
       notes: 'Review native iOS deployment and audio synthesis hooks',
       enableVoice: true,
@@ -89,13 +95,14 @@ const getInitialEvents = (): ScheduleEvent[] => {
     },
     {
       id: '5',
-      title: 'Grocery & Evening Workout',
+      title: 'Evening Workout & Cardio',
       date: todayKey,
       time: '18:30',
       duration: 45,
       category: 'personal',
+      protectionLevel: 'health',
       completed: false,
-      notes: 'Gym session and pick up organic fruits',
+      notes: 'Gym session and stretch',
       enableVoice: true,
       enableNotification: true,
       accent: 'en-TA',
@@ -103,11 +110,12 @@ const getInitialEvents = (): ScheduleEvent[] => {
     },
     {
       id: '6',
-      title: 'Weekly Strategy Planning',
+      title: 'Quarterly Strategy Deep Work',
       date: monKey,
       time: '10:00',
-      duration: 60,
+      duration: 90,
       category: 'work',
+      protectionLevel: 'deep-work',
       completed: false,
       notes: 'Quarterly roadmap alignment',
       enableVoice: true,
@@ -120,8 +128,9 @@ const getInitialEvents = (): ScheduleEvent[] => {
       title: 'Meditation & Breathwork',
       date: wedKey,
       time: '07:30',
-      duration: 25,
+      duration: 30,
       category: 'health',
+      protectionLevel: 'health',
       completed: false,
       notes: 'Mindfulness breathing practice',
       enableVoice: true,
@@ -136,6 +145,7 @@ const getInitialEvents = (): ScheduleEvent[] => {
       time: '19:30',
       duration: 90,
       category: 'personal',
+      protectionLevel: 'flexible',
       completed: false,
       notes: 'Reserve table at restaurant',
       enableVoice: true,
@@ -159,7 +169,7 @@ export default function App() {
   // Calendar Events state
   const [events, setEvents] = useState<ScheduleEvent[]>(() => {
     if (typeof window !== 'undefined') {
-      const saved = localStorage.getItem('apple_calendar_events_v2');
+      const saved = localStorage.getItem('apple_calendar_events_v3');
       if (saved) {
         try {
           return JSON.parse(saved);
@@ -188,6 +198,15 @@ export default function App() {
 
   // Account modal state
   const [isAccountModalOpen, setIsAccountModalOpen] = useState(false);
+
+  // Focus Shield Conflict Interception State
+  const [conflictModalData, setConflictModalData] = useState<{
+    candidate: Omit<ScheduleEvent, 'id'> & { id?: string };
+    existingId?: string;
+    conflictingEvents: ScheduleEvent[];
+    suggestedSlot?: string;
+    suggestedEndTime?: string;
+  } | null>(null);
 
   // Calendar Navigation & Views
   const [currentDate, setCurrentDate] = useState<Date>(new Date());
@@ -219,7 +238,7 @@ export default function App() {
 
   // Local storage persistence
   useEffect(() => {
-    localStorage.setItem('apple_calendar_events_v2', JSON.stringify(events));
+    localStorage.setItem('apple_calendar_events_v3', JSON.stringify(events));
   }, [events]);
 
   useEffect(() => {
@@ -303,8 +322,27 @@ export default function App() {
     }
   };
 
-  // Handlers for Event actions
-  const handleSaveEvent = (eventData: Omit<ScheduleEvent, 'id'>, existingId?: string) => {
+  // Handlers for Event actions with Focus Shield conflict interception
+  const handleSaveEvent = (
+    eventData: Omit<ScheduleEvent, 'id'>, 
+    existingId?: string, 
+    forceOverride: boolean = false
+  ) => {
+    // Check for focus conflicts if not forced
+    if (!forceOverride) {
+      const conflictResult = checkFocusConflict({ ...eventData, id: existingId }, events);
+      if (conflictResult.hasConflict) {
+        setConflictModalData({
+          candidate: { ...eventData, id: existingId },
+          existingId,
+          conflictingEvents: conflictResult.conflictingEvents,
+          suggestedSlot: conflictResult.suggestedSlot,
+          suggestedEndTime: conflictResult.suggestedEndTime,
+        });
+        return;
+      }
+    }
+
     if (existingId) {
       setEvents(prev => prev.map(e => e.id === existingId ? { ...eventData, id: existingId } : e));
     } else {
@@ -314,6 +352,30 @@ export default function App() {
       };
       setEvents(prev => [...prev, newEvent]);
     }
+  };
+
+  // Reschedule to suggested conflict-free slot
+  const handleAutoRescheduleConflict = (newTime: string) => {
+    if (!conflictModalData) return;
+    const candidate = { ...conflictModalData.candidate, time: newTime };
+    const id = conflictModalData.existingId;
+    setConflictModalData(null);
+    handleSaveEvent(candidate, id, true);
+
+    setSimulatedNotification({
+      title: 'Shield Protection Active',
+      message: `Event rescheduled to conflict-free window at ${formatTime12h(newTime)}.`,
+    });
+    setTimeout(() => setSimulatedNotification(null), 4500);
+  };
+
+  // Override focus conflict
+  const handleOverrideConflict = () => {
+    if (!conflictModalData) return;
+    const candidate = conflictModalData.candidate;
+    const id = conflictModalData.existingId;
+    setConflictModalData(null);
+    handleSaveEvent(candidate, id, true);
   };
 
   const handleToggleComplete = (id: string) => {
@@ -518,7 +580,7 @@ export default function App() {
         {/* Main Content Workspace */}
         <div className="flex-1 flex overflow-hidden">
           
-          {/* Collapsible Apple Sidebar */}
+          {/* Collapsible Apple Sidebar with Focus Score Dashboard */}
           {isSidebarOpen && (
             <AppleCalendarSidebar
               currentDate={currentDate}
@@ -533,7 +595,6 @@ export default function App() {
               activeChime={currentChime}
               onChangeChime={setCurrentChime}
               userProfile={userProfile}
-              onOpenAccount={() => setIsAccountModalOpen(true)}
             />
           )}
 
@@ -605,6 +666,18 @@ export default function App() {
         defaultTime={modalPresetTime}
         onSaveEvent={handleSaveEvent}
         onDeleteEvent={handleDeleteEvent}
+      />
+
+      {/* Focus Shield Conflict Warning Interception Modal */}
+      <FocusShieldConflictModal
+        isOpen={!!conflictModalData}
+        onClose={() => setConflictModalData(null)}
+        candidateEvent={conflictModalData ? conflictModalData.candidate : null}
+        conflictingEvents={conflictModalData ? conflictModalData.conflictingEvents : []}
+        suggestedSlot={conflictModalData?.suggestedSlot}
+        suggestedEndTime={conflictModalData?.suggestedEndTime}
+        onAutoReschedule={handleAutoRescheduleConflict}
+        onOverride={handleOverrideConflict}
       />
 
       {/* Apple User Account Details Modal */}

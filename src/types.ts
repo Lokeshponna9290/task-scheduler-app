@@ -2,6 +2,8 @@
  * Types and interfaces for the Daily Schedule & Reminder Application.
  */
 
+export type ProtectionLevel = 'deep-work' | 'health' | 'flexible';
+
 export interface ScheduleEvent {
   id: string;
   title: string;
@@ -16,6 +18,7 @@ export interface ScheduleEvent {
   enableNotification: boolean;
   accent: VoiceAccentId;
   chime: ChimeType;
+  protectionLevel?: ProtectionLevel; // Focus Shield level
 }
 
 export type CalendarViewType = 'day' | 'week' | 'month' | 'year';
@@ -109,4 +112,52 @@ export const CATEGORY_CONFIGS: Record<ScheduleEvent['category'], CategoryConfig>
     textDark: 'text-red-600',
     dotColor: '#FF3B30',
   }
+};
+
+export interface ProtectionConfig {
+  id: ProtectionLevel;
+  label: string;
+  icon: string;
+  badgeLabel: string;
+  color: string;
+  bgLight: string;
+  borderLight: string;
+  glowClass: string;
+  description: string;
+}
+
+export const PROTECTION_CONFIGS: Record<ProtectionLevel, ProtectionConfig> = {
+  'deep-work': {
+    id: 'deep-work',
+    label: 'Deep Work / Focus',
+    icon: '🛡️',
+    badgeLabel: 'Deep Work',
+    color: '#4F46E5', // Indigo
+    bgLight: 'bg-indigo-500/10 hover:bg-indigo-500/15 text-indigo-950 border-l-indigo-600',
+    borderLight: 'border-indigo-300 ring-1 ring-indigo-400/30',
+    glowClass: 'shadow-[0_0_12px_rgba(79,70,229,0.22)]',
+    description: 'High-leverage focus time. Smart Shield guards against interruptions & overlaps.',
+  },
+  'health': {
+    id: 'health',
+    label: 'Health / Recovery',
+    icon: '💚',
+    badgeLabel: 'Health & Recovery',
+    color: '#10B981', // Emerald
+    bgLight: 'bg-emerald-500/10 hover:bg-emerald-500/15 text-emerald-950 border-l-emerald-600',
+    borderLight: 'border-emerald-300 ring-1 ring-emerald-400/30',
+    glowClass: 'shadow-[0_0_12px_rgba(16,185,129,0.22)]',
+    description: 'Non-negotiable wellness or rest window.',
+  },
+  'flexible': {
+    id: 'flexible',
+    label: 'Flexible (Default)',
+    icon: '🔄',
+    badgeLabel: 'Flexible',
+    color: '#6B7280', // Gray
+    bgLight: '',
+    borderLight: '',
+    glowClass: '',
+    description: 'Standard event. Can be freely adjusted.',
+  },
 };

@@ -1,9 +1,6 @@
 import React from 'react';
-import { ScheduleEvent, CATEGORY_CONFIGS } from '../../types';
-import { 
-  getMonthGrid, WEEKDAY_SHORT, toDateKey, 
-  isSameDay, isToday, formatTime12h 
-} from '../../utils/dateUtils';
+import { ScheduleEvent, CATEGORY_CONFIGS, PROTECTION_CONFIGS } from '../../types';
+import { getMonthGrid, isSameDay, isToday, formatTime12h, MONTH_NAMES } from '../../utils/dateUtils';
 import { Plus } from 'lucide-react';
 
 interface AppleMonthViewProps {
@@ -28,45 +25,35 @@ export default function AppleMonthView({
   const year = currentDate.getFullYear();
   const month = currentDate.getMonth();
 
+  // 7x6 Month Matrix
   const grid = getMonthGrid(year, month, currentDate);
 
-  // Group events by date key
-  const eventsByDate = React.useMemo(() => {
-    const map = new Map<string, ScheduleEvent[]>();
-    const todayKey = toDateKey(new Date());
-
-    events.forEach((e) => {
-      const key = e.date || todayKey;
-      if (selectedCategories.has(e.category)) {
-        if (!map.has(key)) map.set(key, []);
-        map.get(key)!.push(e);
-      }
-    });
-
-    // Sort events within each day by time
-    map.forEach((list) => {
-      list.sort((a, b) => a.time.localeCompare(b.time));
-    });
-
-    return map;
-  }, [events, selectedCategories]);
+  const dayOfWeekHeaders = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 
   return (
     <div className="flex-1 flex flex-col h-full bg-white select-none overflow-hidden">
       
-      {/* Weekday Header Row */}
-      <div className="grid grid-cols-7 border-b border-neutral-200 bg-[#F6F6F8]/80 text-center py-2 shrink-0">
-        {WEEKDAY_SHORT.map((w, idx) => (
-          <div key={idx} className="text-[11px] font-semibold text-neutral-500 uppercase tracking-wider">
-            {w}
+      {/* Weekday Table Headers */}
+      <div className="grid grid-cols-7 border-b border-neutral-200 bg-neutral-50/70 shrink-0">
+        {dayOfWeekHeaders.map((day, idx) => (
+          <div
+            key={idx}
+            className="py-1.5 text-center text-[10px] font-bold text-neutral-400 tracking-wider border-r border-neutral-100 last:border-r-0"
+          >
+            {day}
           </div>
         ))}
       </div>
 
-      {/* Month Calendar Grid */}
-      <div className="flex-1 grid grid-cols-7 grid-rows-5 lg:grid-rows-6 divide-x divide-y divide-neutral-200/80 overflow-y-auto">
+      {/* 7x6 Calendar Cells Grid */}
+      <div className="flex-1 grid grid-cols-7 grid-rows-6 border-b border-neutral-200 overflow-hidden bg-neutral-200/40 gap-[1px]">
         {grid.map((day, idx) => {
-          const dayEvents = eventsByDate.get(day.dateKey) || [];
+          // Filter events for this day
+          const dayEvents = events.filter((e) => {
+            const eKey = e.date || '';
+            return eKey === day.dateKey && selectedCategories.has(e.category);
+          });
+
           const isSelected = isSameDay(day.date, currentDate);
           const isCurrentToday = isToday(day.date);
 
@@ -112,6 +99,9 @@ export default function AppleMonthView({
               <div className="flex-1 mt-1 space-y-1 overflow-y-auto max-h-[100px] no-scrollbar">
                 {dayEvents.slice(0, 3).map((event) => {
                   const cat = CATEGORY_CONFIGS[event.category];
+                  const isProtected = event.protectionLevel === 'deep-work' || event.protectionLevel === 'health';
+                  const protConfig = event.protectionLevel ? PROTECTION_CONFIGS[event.protectionLevel] : null;
+
                   return (
                     <div
                       key={event.id}
@@ -121,17 +111,20 @@ export default function AppleMonthView({
                       }}
                       style={{
                         backgroundColor: `${cat.color}18`,
-                        borderLeftColor: cat.color,
+                        borderLeftColor: isProtected && protConfig ? protConfig.color : cat.color,
                       }}
                       className={`px-1.5 py-0.5 rounded text-[10px] font-medium border-l-2 truncate cursor-pointer hover:brightness-95 transition flex items-center gap-1 ${
+                        isProtected && protConfig ? `${protConfig.borderLight}` : ''
+                      } ${
                         event.completed ? 'opacity-50 line-through text-neutral-400' : 'text-neutral-900'
                       }`}
-                      title={`${formatTime12h(event.time)} - ${event.title}`}
+                      title={`${formatTime12h(event.time)} - ${event.title} ${isProtected ? '(Shielded)' : ''}`}
                     >
-                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: cat.color }} />
+                      <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: isProtected && protConfig ? protConfig.color : cat.color }} />
                       <span className="font-mono font-semibold text-[9px] shrink-0 text-neutral-600">
                         {event.time}
                       </span>
+                      {isProtected && protConfig && <span className="text-[9px]">{protConfig.icon}</span>}
                       <span className="truncate">{event.title}</span>
                     </div>
                   );
@@ -139,11 +132,12 @@ export default function AppleMonthView({
 
                 {/* More events indicator */}
                 {dayEvents.length > 3 && (
-                  <div className="text-[9px] font-bold text-neutral-400 pl-1">
+                  <span className="text-[9px] font-bold text-neutral-400 block px-1">
                     +{dayEvents.length - 3} more
-                  </div>
+                  </span>
                 )}
               </div>
+
             </div>
           );
         })}

@@ -4,9 +4,10 @@ import { MONTH_NAMES, getMonthGrid, toDateKey } from '../utils/dateUtils';
 import { VOICE_ACCENTS, speakText, playChime } from '../utils/audio';
 import { 
   ChevronLeft, ChevronRight, Plus, 
-  Volume2, Play, User, Check
+  Volume2, Play, Check
 } from 'lucide-react';
 import { UserProfile } from './AppleAccountModal';
+import FocusScoreWidget from './FocusScoreWidget';
 
 interface AppleCalendarSidebarProps {
   currentDate: Date;
@@ -21,7 +22,6 @@ interface AppleCalendarSidebarProps {
   activeChime: ChimeType;
   onChangeChime: (chime: ChimeType) => void;
   userProfile?: UserProfile;
-  onOpenAccount?: () => void;
 }
 
 export default function AppleCalendarSidebar({
@@ -43,7 +43,6 @@ export default function AppleCalendarSidebar({
     membership: 'Pro Member',
     syncStatus: 'synced',
   },
-  onOpenAccount,
 }: AppleCalendarSidebarProps) {
   // Mini calendar month/year state (allows browsing months in the sidebar independently)
   const [miniCalendarMonth, setMiniCalendarMonth] = useState(currentDate.getMonth());
@@ -78,21 +77,6 @@ export default function AppleCalendarSidebar({
     .sort((a, b) => a.time.localeCompare(b.time));
   
   const nextEvent = todayEvents[0];
-
-  const handleTestVoice = () => {
-    if (isPlayingTestAudio) return;
-    setIsPlayingTestAudio(true);
-    playChime(activeChime);
-    setTimeout(() => {
-      speakText(`Reminder preview with ${VOICE_ACCENTS[activeAccent].name}.`, activeAccent, () => {
-        setIsPlayingTestAudio(false);
-      });
-    }, 800);
-  };
-
-  const initials = userProfile.name
-    ? userProfile.name.split(' ').map(n => n[0]).slice(0, 2).join('').toUpperCase()
-    : 'LP';
 
   return (
     <aside className="w-64 bg-[#F6F6F8] border-r border-black/[0.08] flex flex-col h-full shrink-0 select-none overflow-y-auto custom-sidebar transition-all">
@@ -165,8 +149,13 @@ export default function AppleCalendarSidebar({
         </div>
       </div>
 
-      {/* 2. Apple Calendar Categories / Groups */}
-      <div className="p-4 border-b border-black/[0.06] flex-1">
+      {/* 2. Focus Shield Score Dashboard Widget */}
+      <div className="p-3 border-b border-black/[0.06]">
+        <FocusScoreWidget events={events} currentDate={currentDate} />
+      </div>
+
+      {/* 3. Apple Calendar Categories / Groups */}
+      <div className="p-4 border-b border-black/[0.06]">
         <div className="flex items-center justify-between mb-3 px-1">
           <span className="text-[11px] font-bold uppercase tracking-wider text-neutral-400">
             Calendars
@@ -218,9 +207,9 @@ export default function AppleCalendarSidebar({
         </div>
       </div>
 
-      {/* 3. Next Upcoming Reminder Alert Widget */}
+      {/* 4. Next Upcoming Reminder Alert Widget */}
       {nextEvent && (
-        <div className="p-4 border-t border-black/[0.06]">
+        <div className="p-4 mt-auto">
           <div className="flex items-center gap-1.5 mb-2 px-1">
             <span className="w-2 h-2 rounded-full bg-[#FF3B30] animate-pulse" />
             <span className="text-[10px] font-bold uppercase tracking-wider text-neutral-400">

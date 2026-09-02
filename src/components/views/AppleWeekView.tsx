@@ -1,12 +1,6 @@
-import React, { useEffect, useRef } from 'react';
-import { ScheduleEvent, CATEGORY_CONFIGS, VoiceAccentId } from '../../types';
-import { 
-  getWeekDays, formatHourOnly12h, formatTime12h, 
-  timeStringToMinutes, toDateKey, isToday, isSameDay, 
-  minutesToTimeString, WEEKDAY_SHORT 
-} from '../../utils/dateUtils';
-import { Check, Volume2, Trash2 } from 'lucide-react';
-import { speakText, playChime } from '../../utils/audio';
+import React, { useRef, useEffect } from 'react';
+import { ScheduleEvent, CATEGORY_CONFIGS, PROTECTION_CONFIGS } from '../../types';
+import { getWeekDays, formatTime12h, formatHourOnly12h, isToday, toDateKey } from '../../utils/dateUtils';
 
 interface AppleWeekViewProps {
   currentDate: Date;
@@ -19,7 +13,18 @@ interface AppleWeekViewProps {
   onQuickAddAtDateAndTime: (dateKey: string, timeStr: string) => void;
 }
 
-const HOUR_HEIGHT = 56; // px per hour
+const HOUR_HEIGHT = 58;
+
+const timeStringToMinutes = (timeStr: string): number => {
+  const [hours, minutes] = timeStr.split(':').map(Number);
+  return (hours || 0) * 60 + (minutes || 0);
+};
+
+const minutesToTimeString = (minutes: number): string => {
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  return `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}`;
+};
 
 export default function AppleWeekView({
   currentDate,
@@ -34,82 +39,68 @@ export default function AppleWeekView({
   const containerRef = useRef<HTMLDivElement>(null);
   const weekDays = getWeekDays(currentDate);
 
-  // Live time position
-  const [nowMinutes, setNowMinutes] = React.useState(() => {
-    const now = new Date();
-    return now.getHours() * 60 + now.getMinutes();
-  });
-
-  useEffect(() => {
-    const timer = setInterval(() => {
-      const now = new Date();
-      setNowMinutes(now.getHours() * 60 + now.getMinutes());
-    }, 15000);
-    return () => clearInterval(timer);
-  }, []);
-
-  // Auto-scroll to 8 AM on load
+  // Scroll to 8am on mount
   useEffect(() => {
     if (containerRef.current) {
-      containerRef.current.scrollTop = 7.5 * HOUR_HEIGHT;
+      containerRef.current.scrollTop = 7 * HOUR_HEIGHT;
     }
   }, []);
 
-  const liveLineTop = (nowMinutes / 60) * HOUR_HEIGHT;
+  const now = new Date();
+  const currentMinutes = now.getHours() * 60 + now.getMinutes();
+  const liveLineTop = (currentMinutes / 60) * HOUR_HEIGHT;
 
   return (
     <div className="flex-1 flex flex-col h-full bg-white select-none overflow-hidden">
       
-      {/* 1. Sticky Week Header Row */}
-      <div className="flex border-b border-neutral-200 bg-[#F6F6F8]/80 backdrop-blur-md z-10 shrink-0">
-        {/* Empty top-left corner above hour labels */}
-        <div className="w-14 sm:w-16 border-r border-neutral-200 shrink-0" />
+      {/* 7-Day Header Columns */}
+      <div className="flex border-b border-neutral-200 bg-neutral-50/70 shrink-0 pl-14 sm:pl-16 pr-3">
+        {weekDays.map((day, idx) => {
+          const isDayToday = isToday(day);
+          const isDaySelected =
+            day.getDate() === currentDate.getDate() &&
+            day.getMonth() === currentDate.getMonth() &&
+            day.getFullYear() === currentDate.getFullYear();
 
-        {/* 7 Day Column Headers */}
-        <div className="flex-1 grid grid-cols-7 divide-x divide-neutral-200">
-          {weekDays.map((day, idx) => {
-            const isDayToday = isToday(day);
-            const isDaySelected = isSameDay(day, currentDate);
+          const dayLetter = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'][day.getDay()];
+          const dayNum = day.getDate();
 
-            return (
-              <button
-                key={idx}
-                onClick={() => onSelectDate(day)}
-                className={`py-2 px-1 text-center hover:bg-neutral-200/50 transition flex flex-col items-center justify-center gap-0.5 ${
-                  isDaySelected ? 'bg-blue-50/40' : ''
+          return (
+            <div
+              key={idx}
+              onClick={() => onSelectDate(day)}
+              className="flex-1 py-2 text-center cursor-pointer hover:bg-neutral-100/70 transition border-r border-neutral-100 last:border-r-0"
+            >
+              <span className="text-[10px] font-bold text-neutral-400 block tracking-wider">
+                {dayLetter}
+              </span>
+              <span
+                className={`inline-flex items-center justify-center w-7 h-7 mt-0.5 rounded-full text-xs font-bold transition ${
+                  isDayToday
+                    ? 'bg-[#FF3B30] text-white shadow-xs'
+                    : isDaySelected
+                    ? 'bg-[#007AFF] text-white font-bold'
+                    : 'text-neutral-800'
                 }`}
               >
-                <span className={`text-[10px] font-semibold uppercase tracking-wider ${
-                  isDayToday ? 'text-[#FF3B30] font-bold' : 'text-neutral-500'
-                }`}>
-                  {WEEKDAY_SHORT[day.getDay()]}
-                </span>
-                <span className={`w-7 h-7 flex items-center justify-center rounded-full text-xs font-bold transition ${
-                  isDayToday 
-                    ? 'bg-[#FF3B30] text-white shadow-xs' 
-                    : isDaySelected
-                    ? 'bg-[#007AFF] text-white'
-                    : 'text-neutral-800'
-                }`}>
-                  {day.getDate()}
-                </span>
-              </button>
-            );
-          })}
-        </div>
+                {dayNum}
+              </span>
+            </div>
+          );
+        })}
       </div>
 
-      {/* 2. Scrollable 24-Hour Week Grid */}
+      {/* Week Timeline Canvas */}
       <div ref={containerRef} className="flex-1 overflow-y-auto relative">
-        <div className="flex min-w-[700px] relative pb-16">
+        <div className="flex min-w-[700px] relative pb-20">
           
           {/* Time Labels Column */}
-          <div className="w-14 sm:w-16 shrink-0 border-r border-neutral-200 select-none">
+          <div className="w-14 sm:w-16 shrink-0 select-none">
             {Array.from({ length: 24 }).map((_, hour) => (
-              <div 
+              <div
                 key={hour}
                 style={{ height: `${HOUR_HEIGHT}px` }}
-                className="pr-2 text-right -translate-y-2.5"
+                className="pr-2 text-right -translate-y-2"
               >
                 <span className="text-[10px] font-medium text-neutral-400">
                   {formatHourOnly12h(hour)}
@@ -118,20 +109,19 @@ export default function AppleWeekView({
             ))}
           </div>
 
-          {/* 7 Columns for Days */}
-          <div className="flex-1 grid grid-cols-7 divide-x divide-neutral-200 relative">
+          {/* 7 Columns Grid */}
+          <div className="flex-1 grid grid-cols-7 border-l border-neutral-200 relative">
             {weekDays.map((day, dayIndex) => {
               const dayDateKey = toDateKey(day);
               const isDayToday = isToday(day);
-              
-              // Get events for this day
-              const dayEvents = events.filter(e => {
+
+              const dayEvents = events.filter((e) => {
                 const eKey = e.date || toDateKey(new Date());
                 return eKey === dayDateKey && selectedCategories.has(e.category);
               });
 
               return (
-                <div key={dayIndex} className="relative">
+                <div key={dayIndex} className="relative border-r border-neutral-100 last:border-r-0">
                   
                   {/* 24 Hour Rows for clicking */}
                   {Array.from({ length: 24 }).map((_, hour) => {
@@ -161,10 +151,10 @@ export default function AppleWeekView({
                   {dayEvents.map((event) => {
                     const startMins = timeStringToMinutes(event.time);
                     const top = (startMins / 60) * HOUR_HEIGHT;
-                    const height = Math.max(26, (event.duration / 60) * HOUR_HEIGHT);
+                    const height = Math.max(28, (event.duration / 60) * HOUR_HEIGHT);
                     const cat = CATEGORY_CONFIGS[event.category];
-                    const endMins = startMins + event.duration;
-                    const endTimeStr = minutesToTimeString(endMins);
+                    const isProtected = event.protectionLevel === 'deep-work' || event.protectionLevel === 'health';
+                    const protConfig = event.protectionLevel ? PROTECTION_CONFIGS[event.protectionLevel] : null;
 
                     return (
                       <div
@@ -177,18 +167,19 @@ export default function AppleWeekView({
                           top: `${top}px`,
                           height: `${height}px`,
                           backgroundColor: `${cat.color}20`,
-                          borderLeftColor: cat.color,
+                          borderLeftColor: isProtected && protConfig ? protConfig.color : cat.color,
                         }}
-                        className={`absolute left-0.5 right-0.5 border-l-3 rounded-r p-1 text-xs shadow-2xs hover:shadow-md transition cursor-pointer overflow-hidden border border-black/[0.04] group ${
-                          event.completed ? 'opacity-50 line-through' : ''
-                        }`}
+                        className={`absolute left-0.5 right-0.5 border-l-3 rounded-r-md p-1 text-xs shadow-2xs hover:shadow-md transition cursor-pointer overflow-hidden border border-black/[0.04] group ${
+                          isProtected && protConfig ? `${protConfig.borderLight} ${protConfig.glowClass}` : ''
+                        } ${event.completed ? 'opacity-50 line-through' : ''}`}
                       >
-                        <div className="flex items-center justify-between gap-1 leading-tight">
-                          <span className={`font-bold text-[11px] text-neutral-900 truncate ${event.completed ? 'line-through text-neutral-500' : ''}`}>
-                            {event.title}
+                        <div className="flex items-center justify-between gap-0.5 leading-tight">
+                          <span className={`font-bold text-[11px] text-neutral-900 truncate flex items-center gap-1 ${event.completed ? 'line-through text-neutral-500' : ''}`}>
+                            {isProtected && protConfig && <span className="text-[10px]">{protConfig.icon}</span>}
+                            <span>{event.title}</span>
                           </span>
                         </div>
-                        {height >= 40 && (
+                        {height >= 38 && (
                           <span className="text-[9px] font-semibold text-neutral-500 font-mono block">
                             {formatTime12h(event.time)}
                           </span>
@@ -204,6 +195,7 @@ export default function AppleWeekView({
 
         </div>
       </div>
+
     </div>
   );
 }
